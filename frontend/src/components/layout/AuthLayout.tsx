@@ -1,7 +1,14 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate } from 'react-router-dom';
+import { useAppSelector } from '@/redux/hooks';
 import Header from './Header';
 
 const AuthLayout = () => {
+  const { token } = useAppSelector((state) => state.auth);
+  
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />

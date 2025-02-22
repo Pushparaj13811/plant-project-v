@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import { loginUser, clearError } from '@/redux/features/authSlice';
 
 const LoginForm = () => {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { isLoading, error, token } = useAppSelector((state) => state.auth);
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -19,7 +25,15 @@ const LoginForm = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      navigate('/dashboard');
+    }
+    return () => {
+      dispatch(clearError());
+    };
+  }, [token, navigate, dispatch]);
 
   const validateForm = () => {
     const newErrors = {
@@ -47,16 +61,11 @@ const LoginForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      setIsLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Form submitted:', formData);
-        // Handle successful login here
+        await dispatch(loginUser(formData)).unwrap();
+        navigate('/dashboard');
       } catch (error) {
         console.error('Login error:', error);
-      } finally {
-        setIsLoading(false);
       }
     }
   };
@@ -149,6 +158,12 @@ const LoginForm = () => {
               Forgot password?
             </Button>
           </div>
+
+          {error && (
+            <Alert variant="destructive" className="py-2">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">

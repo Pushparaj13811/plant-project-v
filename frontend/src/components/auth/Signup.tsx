@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { Link, } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/redux/hooks';
+import { registerUser, clearError } from '@/redux/features/authSlice';
 
 const SignupForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { isLoading, error, token } = useAppSelector((state) => state.auth);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -25,6 +30,15 @@ const SignupForm = () => {
     password: '',
     confirmPassword: ''
   });
+
+  useEffect(() => {
+    if (token) {
+      navigate('/dashboard');
+    }
+    return () => {
+      dispatch(clearError());
+    };
+  }, [token, navigate, dispatch]);
 
   const validateForm = () => {
     const newErrors = {
@@ -68,17 +82,14 @@ const SignupForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      setIsLoading(true);
       try {
-        // Handle form submission here
-        console.log('Form submitted:', formData);
-        // Add your API call here
-        // await api.signup(formData);
-        // navigate('/dashboard');
+        const { confirmPassword, ...registerData } = formData;
+        void confirmPassword;
+
+        await dispatch(registerUser(registerData)).unwrap();
+        navigate('/dashboard');
       } catch (error) {
         console.error('Signup error:', error);
-      } finally {
-        setIsLoading(false);
       }
     }
   };
@@ -234,6 +245,11 @@ const SignupForm = () => {
           </p>
         </CardFooter>
       </form>
+      {error && (
+        <Alert variant="destructive" className="py-2">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </Card>
   );
 };
