@@ -94,7 +94,7 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(required=True)
+    old_password = serializers.CharField(required=False)
     new_password = serializers.CharField(required=True)
 
     def validate_new_password(self, value):

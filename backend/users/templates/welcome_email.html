@@ -53,6 +53,7 @@
             <p>Welcome to the Plant Management System! Your account has been successfully created with the following details:</p>
             
             <div class="credentials">
+                <p><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
                 <p><strong>Email:</strong> {{ user.email }}</p>
                 <p><strong>Role:</strong> {{ user.role }}</p>
                 {% if user.plant %}
