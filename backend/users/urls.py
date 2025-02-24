@@ -1,7 +1,11 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import UserViewSet, PlantViewSet
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet)
+router.register(r'plants', PlantViewSet)
 
 urlpatterns = [
-    # Add your user-related URLs here
-    # Example: path('profile/', views.UserProfileView.as_view(), name='user-profile'),
+    path('', include(router.urls)),
 ] 

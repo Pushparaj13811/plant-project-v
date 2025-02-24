@@ -65,7 +65,17 @@ class LoginView(APIView):
                             type=openapi.TYPE_OBJECT,
                             properties={
                                 'email': openapi.Schema(type=openapi.TYPE_STRING),
-                                'name': openapi.Schema(type=openapi.TYPE_STRING),
+                                'first_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                'last_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                'role': openapi.Schema(type=openapi.TYPE_STRING),
+                                'plant': openapi.Schema(
+                                    type=openapi.TYPE_OBJECT,
+                                    properties={
+                                        'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                        'name': openapi.Schema(type=openapi.TYPE_STRING),
+                                        'address': openapi.Schema(type=openapi.TYPE_STRING),
+                                    }
+                                )
                             }
                         )
                     }
@@ -77,10 +87,12 @@ class LoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
+            print(f"Login attempt for email: {serializer.validated_data['email']}")
             user = authenticate(
                 email=serializer.validated_data['email'],
                 password=serializer.validated_data['password']
             )
+            print(f"Authentication result: {user}")
             if user:
                 refresh = RefreshToken.for_user(user)
                 return Response({
@@ -88,8 +100,18 @@ class LoginView(APIView):
                     'access': str(refresh.access_token),
                     'user': {
                         'email': user.email,
-                        'name': user.name
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'role': user.role,
+                        'plant': {
+                            'id': user.plant.id,
+                            'name': user.plant.name,
+                            'address': user.plant.address
+                        } if user.plant else None
                     }
                 })
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {'detail': 'Invalid email or password'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
