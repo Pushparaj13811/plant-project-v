@@ -1,22 +1,14 @@
-import { Outlet, Navigate } from 'react-router-dom'
-import { useAppSelector } from '@/redux/hooks'
-import Header from './Header'
+import { Outlet } from 'react-router-dom'
+import Sidebar from './Sidebar'
 
 const MainLayout = () => {
-    const { token } = useAppSelector((state) => state.auth)
-
-    if (!token) {
-        return <Navigate to="/login" replace />
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <Header />
-
-            {/* Main Content */}
-            <main className="container mx-auto px-4 py-8">
-                <Outlet />
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <Sidebar />
+            <main className="lg:pl-64 min-h-screen">
+                <div className="py-4">
+                    <Outlet />
+                </div>
             </main>
         </div>
     )

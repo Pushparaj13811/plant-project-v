@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { loginUser, clearError } from '@/redux/features/authSlice';
+import { loginUser, clearError, setError } from '@/redux/features/authSlice';
 
 const LoginForm = () => {
   const dispatch = useAppDispatch();
@@ -15,11 +15,6 @@ const LoginForm = () => {
   const { isLoading, error, token } = useAppSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-
-  const [errors, setErrors] = useState({
     email: '',
     password: ''
   });
@@ -36,46 +31,48 @@ const LoginForm = () => {
   }, [token, navigate, dispatch]);
 
   const validateForm = () => {
-    const newErrors = {
-      email: '',
-      password: ''
-    };
-
+    const errors: { email?: string; password?: string } = {};
+    
     // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+    if (!formData.email) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email';
     }
 
     // Password validation
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
     }
 
-    setErrors(newErrors);
-    return !Object.values(newErrors).some(error => error !== '');
+    return errors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      try {
-        await dispatch(loginUser(formData)).unwrap();
+    const errors = validateForm();
+
+    if (Object.keys(errors).length > 0) {
+      const errorMessage = Object.values(errors).join(', ');
+      dispatch(setError(errorMessage));
+      return;
+    }
+
+    try {
+      const result = await dispatch(loginUser(formData)).unwrap();
+      if (result) {
         navigate('/dashboard');
-      } catch (error) {
-        console.error('Login error:', error);
       }
+    } catch {
+      // Error is already handled by the reducer and shown in the UI
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (error) dispatch(clearError());
+    setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
   return (
@@ -93,6 +90,11 @@ const LoginForm = () => {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">Email</Label>
             <Input
@@ -102,14 +104,9 @@ const LoginForm = () => {
               placeholder="Enter your email"
               value={formData.email}
               onChange={handleChange}
-              className={`h-11 ${errors.email ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'}`}
+              className="h-11 focus:ring-blue-500"
               disabled={isLoading}
             />
-            {errors.email && (
-              <Alert variant="destructive" className="py-2 text-sm">
-                <AlertDescription>{errors.email}</AlertDescription>
-              </Alert>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -122,8 +119,9 @@ const LoginForm = () => {
                 placeholder="Enter your password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`h-11 ${errors.password ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'} pr-10`}
+                className="h-11 focus:ring-blue-500 pr-10"
                 disabled={isLoading}
+                
               />
               <button
                 type="button"
@@ -138,11 +136,6 @@ const LoginForm = () => {
                 )}
               </button>
             </div>
-            {errors.password && (
-              <Alert variant="destructive" className="py-2 text-sm">
-                <AlertDescription>{errors.password}</AlertDescription>
-              </Alert>
-            )}
           </div>
 
           <div className="flex items-center justify-between">
@@ -158,12 +151,6 @@ const LoginForm = () => {
               Forgot password?
             </Button>
           </div>
-
-          {error && (
-            <Alert variant="destructive" className="py-2">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">
