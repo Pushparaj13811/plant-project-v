@@ -7,12 +7,13 @@ import {
   Settings,
   Menu,
   X,
-  LogOut
+  LogOut,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
-import { UserRole } from '@/types/models';
+import { RoleCategory } from '@/types/models';
 import { logout } from '@/redux/features/authSlice';
 
 const Sidebar = () => {
@@ -27,30 +28,36 @@ const Sidebar = () => {
       name: 'Dashboard',
       href: '/dashboard',
       icon: LayoutDashboard,
-      allowedRoles: [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.USER]
+      allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]
     },
     {
       name: 'Users',
       href: '/users',
       icon: Users,
-      allowedRoles: [UserRole.SUPERADMIN, UserRole.ADMIN]
+      allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN]
+    },
+    {
+      name: 'Roles',
+      href: '/roles',
+      icon: UserCircle,
+      allowedRoles: [RoleCategory.SUPERADMIN]
     },
     {
       name: 'Plants',
       href: '/plants',
       icon: Factory,
-      allowedRoles: [UserRole.SUPERADMIN, UserRole.ADMIN]
+      allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN]
     },
     {
       name: 'Settings',
       href: '/settings',
       icon: Settings,
-      allowedRoles: [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MANAGER]
+      allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN]
     }
   ];
 
   const filteredNavigation = navigation.filter(item => 
-    item.allowedRoles.includes(user?.role as keyof typeof UserRole)
+    item.allowedRoles.includes(user?.role_details?.category as RoleCategory)
   );
 
   const handleLogout = () => {
@@ -125,7 +132,7 @@ const Sidebar = () => {
                   {user?.first_name} {user?.last_name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user?.email}
+                  {user?.role_details?.name || user?.email}
                 </p>
               </div>
               <Button

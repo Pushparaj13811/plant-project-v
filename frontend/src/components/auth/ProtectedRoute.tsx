@@ -1,10 +1,10 @@
 import { Navigate } from 'react-router-dom';
 import { useAppSelector } from '@/redux/hooks';
-import { UserRole } from '@/types/models';
+import { RoleCategory } from '@/types/models';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
+  allowedRoles?: RoleCategory[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles = [] }) => {
@@ -20,7 +20,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   // If roles are specified, check if user has permission
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role as UserRole)) {
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role_details?.category as RoleCategory)) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserRole, Plant } from '@/types/models';
+import { Role, Plant } from '@/types/models';
 import api from '@/services/api';
 import { AxiosError } from 'axios';
 import type { ApiErrorResponse } from '@/services/api';
@@ -16,7 +16,7 @@ interface UserFormData {
   email: string;
   first_name: string;
   last_name: string;
-  role: keyof typeof UserRole;
+  role_id: string;
   plant_id: string;
 }
 
@@ -29,21 +29,23 @@ const EditUser = () => {
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [plants, setPlants] = useState<Plant[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     first_name: '',
     last_name: '',
-    role: UserRole.USER,
+    role_id: '',
     plant_id: NO_PLANT
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [userResponse, plantsResponse] = await Promise.all([
+        const [userResponse, plantsResponse, rolesResponse] = await Promise.all([
           api.get(`/management/users/${id}/`),
-          api.get<Plant[]>('/management/plants/')
+          api.get<Plant[]>('/management/plants/'),
+          api.get<Role[]>('/management/roles/')
         ]);
         
         const userData = userResponse.data;
@@ -51,10 +53,11 @@ const EditUser = () => {
           email: userData.email,
           first_name: userData.first_name,
           last_name: userData.last_name,
-          role: userData.role,
+          role_id: userData.role_details.id.toString(),
           plant_id: userData.plant?.id.toString() || NO_PLANT
         });
         setPlants(plantsResponse.data);
+        setRoles(rolesResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to fetch user details');
@@ -72,7 +75,6 @@ const EditUser = () => {
     setError(null);
 
     try {
-      // Convert plant_id to number or null
       const plantId = formData.plant_id === NO_PLANT ? null : 
         formData.plant_id ? parseInt(formData.plant_id) : null;
 
@@ -80,7 +82,7 @@ const EditUser = () => {
         email: formData.email,
         first_name: formData.first_name,
         last_name: formData.last_name,
-        role: formData.role,
+        role_id: formData.role_id,
         plant_id: plantId
       };
 
@@ -193,16 +195,16 @@ const EditUser = () => {
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select
-                  value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value as keyof typeof UserRole })}
+                  value={formData.role_id}
+                  onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                 >
                   <SelectTrigger className="focus-visible:ring-blue-500">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(UserRole).map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id.toString()}>
+                        {role.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

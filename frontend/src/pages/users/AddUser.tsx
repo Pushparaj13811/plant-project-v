@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserRole, Plant } from '@/types/models';
+import { Role, Plant } from '@/types/models';
 import api from '@/services/api';
 import { AxiosError } from 'axios';
 import type { ApiErrorResponse } from '@/services/api';
@@ -18,27 +18,32 @@ const AddUser = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
     last_name: '',
-    role: UserRole.USER as keyof typeof UserRole,
+    role_id: '',
     plant_id: ''
   });
 
   const [plants, setPlants] = useState<Plant[]>([]);
 
   useEffect(() => {
-    const fetchPlants = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get<Plant[]>('/management/plants/');
-        setPlants(response.data);
+        const [plantsResponse, rolesResponse] = await Promise.all([
+          api.get<Plant[]>('/management/plants/'),
+          api.get<Role[]>('/management/roles/')
+        ]);
+        setPlants(plantsResponse.data);
+        setRoles(rolesResponse.data);
       } catch (error) {
-        console.error('Error fetching plants:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchPlants();
+    fetchData();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,16 +159,16 @@ const AddUser = () => {
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select
-                  value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value as keyof typeof UserRole })}
+                  value={formData.role_id}
+                  onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                 >
                   <SelectTrigger className="focus-visible:ring-blue-500">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(UserRole).map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id.toString()}>
+                        {role.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

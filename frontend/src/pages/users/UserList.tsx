@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { UserRole, type User, type Plant } from '@/types/models';
+import { Role, RoleCategory, type User, type Plant } from '@/types/models';
 import { Search, UserPlus, Pencil, Trash2 } from 'lucide-react';
 import api from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,7 @@ interface UserWithPlant extends User {
 
 const UserList = () => {
   const [users, setUsers] = useState<UserWithPlant[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -34,12 +35,14 @@ const UserList = () => {
 
   const fetchData = async () => {
     try {
-      const [usersResponse, plantsResponse] = await Promise.all([
+      const [usersResponse, plantsResponse, rolesResponse] = await Promise.all([
         api.get<UserWithPlant[]>('/management/users/'),
-        api.get<Plant[]>('/management/plants/')
+        api.get<Plant[]>('/management/plants/'),
+        api.get<Role[]>('/management/roles/')
       ]);
       setUsers(usersResponse.data);
       setPlants(plantsResponse.data);
+      setRoles(rolesResponse.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -83,7 +86,7 @@ const UserList = () => {
       user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    const matchesRole = roleFilter === 'all' || user.role_details?.id.toString() === roleFilter;
     const matchesPlant = plantFilter === 'all' || user.plant?.id.toString() === plantFilter;
     return matchesSearch && matchesRole && matchesPlant;
   });
@@ -123,9 +126,9 @@ const UserList = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                {Object.values(UserRole).map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id.toString()}>
+                    {role.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -186,13 +189,12 @@ const UserList = () => {
                       <span className={cn(
                         "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
                         {
-                          'bg-purple-100 text-purple-800': user.role === UserRole.SUPERADMIN,
-                          'bg-blue-100 text-blue-800': user.role === UserRole.ADMIN,
-                          'bg-green-100 text-green-800': user.role === UserRole.MANAGER,
-                          'bg-gray-100 text-gray-800': user.role === UserRole.USER,
+                          'bg-purple-100 text-purple-800': user.role_details?.category === RoleCategory.SUPERADMIN,
+                          'bg-blue-100 text-blue-800': user.role_details?.category === RoleCategory.ADMIN,
+                          'bg-green-100 text-green-800': user.role_details?.category === RoleCategory.USER
                         }
                       )}>
-                        {user.role}
+                        {user.role_details?.name || '-'}
                       </span>
                     </TableCell>
                     <TableCell>{user.plant?.name || '-'}</TableCell>
