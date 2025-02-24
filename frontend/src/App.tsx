@@ -1,19 +1,19 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Loginpage from './pages/Loginpage'
-import Dashboard from './pages/Dashboard'
+import Loginpage from './pages/auth/Loginpage'
+import Dashboard from './pages/dashboard/Dashboard'
 import AuthLayout from './components/layout/AuthLayout'
 import MainLayout from './components/layout/MainLayout'
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './redux/store';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import AddUser from './pages/AddUser'
-import UserList from './pages/UserList'
-import EditUser from './pages/EditUser'
-import AddPlant from './pages/AddPlant';
-import PlantList from './pages/PlantList';
-import Settings from './pages/Settings';
-import EditPlant from './pages/EditPlant';
+import AddUser from './pages/users/AddUser'
+import UserList from './pages/users/UserList'
+import EditUser from './pages/users/EditUser'
+import AddPlant from './pages/plants/AddPlant';
+import PlantList from './pages/plants/PlantList';
+import Settings from './pages/settings/Settings';
+import EditPlant from './pages/plants/EditPlant';
 import { UserRole } from './types/models';
 
 function App() {
