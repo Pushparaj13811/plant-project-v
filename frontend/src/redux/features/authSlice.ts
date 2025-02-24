@@ -1,10 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
-
-interface User {
-  email: string;
-  name: string;
-}
+import { PayloadAction } from '@reduxjs/toolkit';
+import type { User } from '@/types/models';
 
 interface AuthState {
   user: User | null;
@@ -48,16 +45,30 @@ export const loginUser = createAsyncThunk<
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const data = error.response?.data as ApiError;
-        if (data.detail) {
-          return rejectWithValue(data.detail);
+        // Handle 401 Unauthorized
+        if (error.response?.status === 401) {
+          return rejectWithValue(error.response.data.error || 'Invalid credentials');
         }
-        const errors = [];
-        if (data.email) errors.push(data.email[0]);
-        if (data.password) errors.push(data.password[0]);
-        return rejectWithValue(errors.join(', ') || 'Login failed');
+        
+        // Handle validation errors
+        if (error.response?.data) {
+          const data = error.response.data as ApiError;
+          if (data.detail) {
+            return rejectWithValue(data.detail);
+          }
+          // Handle field-specific errors
+          const errors: string[] = [];
+          if (data.email) errors.push(`Email: ${data.email[0]}`);
+          if (data.password) errors.push(`Password: ${data.password[0]}`);
+          return rejectWithValue(errors.join(', '));
+        }
+
+        // Handle network errors
+        if (!error.response) {
+          return rejectWithValue('Network error. Please check your connection.');
+        }
       }
-      return rejectWithValue('Login failed');
+      return rejectWithValue('An unexpected error occurred');
     }
   }
 );
@@ -102,6 +113,9 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    setError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -140,5 +154,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { logout, clearError, setError } = authSlice.actions;
+export { authSlice };
 export default authSlice.reducer; 
