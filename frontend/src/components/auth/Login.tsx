@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { loginUser, clearError, setError } from '@/redux/features/authSlice';
 const LoginForm = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { isLoading, error, token } = useAppSelector((state) => state.auth);
+  const { isLoading, error, token, user } = useAppSelector((state) => state.auth);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -23,12 +23,16 @@ const LoginForm = () => {
 
   useEffect(() => {
     if (token) {
-      navigate('/dashboard');
+      if (user?.force_password_change) {
+        navigate('/force-password-change');
+      } else {
+        navigate('/dashboard');
+      }
     }
     return () => {
       dispatch(clearError());
     };
-  }, [token, navigate, dispatch]);
+  }, [token, user, navigate, dispatch]);
 
   const validateForm = () => {
     const errors: { email?: string; password?: string } = {};
@@ -63,7 +67,11 @@ const LoginForm = () => {
     try {
       const result = await dispatch(loginUser(formData)).unwrap();
       if (result) {
-        navigate('/dashboard');
+        if (result.user.force_password_change) {
+          navigate('/force-password-change');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch {
       // Error is already handled by the reducer and shown in the UI
@@ -121,7 +129,6 @@ const LoginForm = () => {
                 onChange={handleChange}
                 className="h-11 focus:ring-blue-500 pr-10"
                 disabled={isLoading}
-                
               />
               <button
                 type="button"
@@ -153,7 +160,7 @@ const LoginForm = () => {
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col space-y-4">
+        <CardFooter>
           <Button
             type="submit"
             className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md"
@@ -168,12 +175,6 @@ const LoginForm = () => {
               'Sign In'
             )}
           </Button>
-          <p className="text-sm text-center text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-              Sign up
-            </Link>
-          </p>
         </CardFooter>
       </form>
     </Card>

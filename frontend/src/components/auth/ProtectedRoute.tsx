@@ -1,15 +1,26 @@
 import { Navigate } from 'react-router-dom';
 import { useAppSelector } from '@/redux/hooks';
+import { UserRole } from '@/types/models';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles: string[];
+  allowedRoles?: UserRole[];
 }
 
-const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user } = useAppSelector((state) => state.auth);
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles = [] }) => {
+  const { user, token } = useAppSelector((state) => state.auth);
 
-  if (!user || !allowedRoles.includes(user.role)) {
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Check if password change is required and not already on the change password page
+  if (user.force_password_change && window.location.pathname !== '/force-password-change') {
+    return <Navigate to="/force-password-change" replace />;
+  }
+
+  // If roles are specified, check if user has permission
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role as UserRole)) {
     return <Navigate to="/dashboard" replace />;
   }
 

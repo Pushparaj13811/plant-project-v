@@ -14,6 +14,7 @@ import AddPlant from './pages/plants/AddPlant';
 import PlantList from './pages/plants/PlantList';
 import Settings from './pages/settings/Settings';
 import EditPlant from './pages/plants/EditPlant';
+import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 import { UserRole } from './types/models';
 
 function App() {
@@ -29,7 +30,16 @@ function App() {
 
           {/* Protected Routes */}
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/force-password-change" element={
+              <ProtectedRoute>
+                <ForcePasswordChange />
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             <Route 
               path="/users" 
               element={

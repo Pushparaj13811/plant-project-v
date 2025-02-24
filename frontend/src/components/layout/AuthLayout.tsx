@@ -1,12 +1,24 @@
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAppSelector } from '@/redux/hooks';
 import Header from './Header';
 
 const AuthLayout = () => {
-  const { token } = useAppSelector((state) => state.auth);
+  const { token, user } = useAppSelector((state) => state.auth);
+  const location = useLocation();
   
-  if (token) {
+  // Don't redirect if we're already on the force-password-change page
+  if (token && user?.force_password_change && location.pathname !== '/force-password-change') {
+    return <Navigate to="/force-password-change" replace />;
+  }
+
+  // Only redirect to dashboard if we have a token and user has changed password
+  if (token && !user?.force_password_change && location.pathname !== '/dashboard') {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // If no token and not on login page, redirect to login
+  if (!token && location.pathname !== '/login') {
+    return <Navigate to="/login" replace />;
   }
 
   return (

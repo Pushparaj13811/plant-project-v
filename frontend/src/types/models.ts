@@ -1,23 +1,23 @@
-export const UserRole = {
-  SUPERADMIN: 'SUPERADMIN',
-  ADMIN: 'ADMIN',
-  MANAGER: 'MANAGER',
-  USER: 'USER'
-} as const;
-
-export type UserRoleType = typeof UserRole[keyof typeof UserRole];
-
-export interface User {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: UserRoleType;
-  plant?: Plant;
+export enum UserRole {
+  SUPERADMIN = 'SUPERADMIN',
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  USER = 'USER'
 }
 
 export interface Plant {
   id: number;
   name: string;
   address: string;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: UserRole;
+  plant?: Plant;
+  force_password_change: boolean;
+  has_changed_password: boolean;
 } 
