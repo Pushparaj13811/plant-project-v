@@ -6,9 +6,9 @@ export interface ApiErrorResponse {
   detail?: string;
   [key: string]: unknown;
 }
-
+const baseURL = import.meta.env.VITE_API_URL;
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api'
+  baseURL: baseURL
 });
 
 api.interceptors.request.use((config) => {
