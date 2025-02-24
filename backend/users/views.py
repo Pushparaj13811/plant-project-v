@@ -7,14 +7,26 @@ from django.utils import timezone
 from .models import User, Plant
 from .serializers import UserSerializer, PlantSerializer, ChangePasswordSerializer
 from .utils import is_valid_reset_token
-from .permissions import IsSuperAdmin, IsAdminUser
+from .permissions import (
+    IsSuperAdmin, 
+    HasChangedPasswordOrIsPasswordChange,
+    PasswordChangeRequiredMixin
+)
 
 # Create your views here.
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(PasswordChangeRequiredMixin, viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get_permissions(self):
+        """
+        Override to ensure password change endpoint is accessible without admin permissions
+        """
+        if self.action == 'change_password':
+            return [IsAuthenticated(), HasChangedPasswordOrIsPasswordChange()]
+        return super().get_permissions()
 
     @action(detail=True, methods=['post'], url_path='change-password')
     def change_password(self, request, pk=None):
@@ -22,12 +34,13 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = ChangePasswordSerializer(data=request.data)
         
         if serializer.is_valid():
-            # Check old password
-            if not user.check_password(serializer.validated_data['old_password']):
-                return Response(
-                    {'error': 'Current password is incorrect'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # Only check old password if not force_password_change
+            if not user.force_password_change:
+                if not user.check_password(serializer.validated_data.get('old_password', '')):
+                    return Response(
+                        {'error': 'Current password is incorrect'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             
             # Set new password
             user.set_password(serializer.validated_data['new_password'])
@@ -35,7 +48,12 @@ class UserViewSet(viewsets.ModelViewSet):
             user.force_password_change = False
             user.save()
             
-            return Response({'message': 'Password changed successfully'})
+            # Return updated user data
+            user_data = UserSerializer(user).data
+            return Response({
+                'message': 'Password changed successfully',
+                'user': user_data
+            })
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -99,7 +117,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response({'valid': True, 'email': user.email})
 
-class PlantViewSet(viewsets.ModelViewSet):
+class PlantViewSet(PasswordChangeRequiredMixin, viewsets.ModelViewSet):
     queryset = Plant.objects.all()
     serializer_class = PlantSerializer
     permission_classes = [IsAuthenticated, IsSuperAdmin]
