@@ -1,135 +1,218 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAppSelector } from '@/redux/hooks';
-import { Users, Factory, Activity, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useAppSelector } from '@/redux/hooks';
+import StatsCard from '@/components/dashboard/StatsCard';
+import ChartCard from '@/components/dashboard/ChartCard';
+import RecentActivity from '@/components/dashboard/RecentActivity';
+import { Users, Factory, Activity, TrendingUp } from 'lucide-react';
+import { RoleCategory } from '@/types/models';
 import api from '@/services/api';
-import type { User, Plant } from '@/types/models';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface DashboardStats {
   totalUsers: number;
   totalPlants: number;
   activeUsers: number;
-  recentActivities: number;
+  userGrowth: number;
+}
+
+interface DashboardData {
+  stats: DashboardStats;
+  activities: {
+    id: string;
+    type: 'user' | 'plant' | 'system' | 'promotion' | 'demotion' | 'update';
+    title: string;
+    description: string;
+    timestamp: string;
+  }[];
+  chartData: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      borderColor: string;
+      backgroundColor: string;
+    }[];
+  };
 }
 
 const Dashboard = () => {
   const user = useAppSelector((state) => state.auth.user);
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    totalPlants: 0,
-    activeUsers: 0,
-    recentActivities: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        // In a real application, you would have an API endpoint for stats
-        // For now, we'll fetch users and plants to show some numbers
-        const [usersResponse, plantsResponse] = await Promise.all([
-          api.get<User[]>('/management/users/'),
-          api.get<Plant[]>('/management/plants/')
-        ]);
-
-        setStats({
-          totalUsers: usersResponse.data.length,
-          totalPlants: plantsResponse.data.length,
-          activeUsers: Math.floor(usersResponse.data.length * 0.8), // Simulated active users
-          recentActivities: Math.floor(Math.random() * 50), // Simulated activities
-        });
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await api.get('/management/users/dashboard_stats/');
+        setDashboardData(response.data);
       } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
+        console.error('Error fetching dashboard data:', error);
+        setError('Failed to load dashboard data. Please try again later.');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchStats();
+    fetchDashboardData();
   }, []);
 
-  const statCards = [
-    {
-      title: 'Total Users',
-      value: stats.totalUsers,
-      icon: Users,
-      description: 'Registered users in the system',
-      color: 'from-blue-600 to-blue-400',
-    },
-    {
-      title: 'Total Plants',
-      value: stats.totalPlants,
-      icon: Factory,
-      description: 'Active plants in operation',
-      color: 'from-purple-600 to-purple-400',
-    },
-    {
-      title: 'Active Users',
-      value: stats.activeUsers,
-      icon: Activity,
-      description: 'Users active in last 30 days',
-      color: 'from-green-600 to-green-400',
-    },
-    {
-      title: 'Recent Activities',
-      value: stats.recentActivities,
-      icon: TrendingUp,
-      description: 'Activities in last 24 hours',
-      color: 'from-orange-600 to-orange-400',
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertDescription>No dashboard data available.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const renderSuperAdminDashboard = () => (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <StatsCard
+          title="Total Users"
+          value={dashboardData.stats.totalUsers}
+          icon={Users}
+          trend={{ value: dashboardData.stats.userGrowth, isUpward: dashboardData.stats.userGrowth > 0 }}
+          description="Total registered users in the system"
+        />
+        <StatsCard
+          title="Total Plants"
+          value={dashboardData.stats.totalPlants}
+          icon={Factory}
+          description="Total plants in the system"
+        />
+        <StatsCard
+          title="Active Users"
+          value={dashboardData.stats.activeUsers}
+          icon={Activity}
+          description="Users active in last 30 days"
+        />
+        <StatsCard
+          title="User Growth"
+          value={`${dashboardData.stats.userGrowth}%`}
+          icon={TrendingUp}
+          trend={{ value: dashboardData.stats.userGrowth, isUpward: dashboardData.stats.userGrowth > 0 }}
+          description="New users in last 30 days"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Monthly User Activity"
+            data={dashboardData.chartData}
+          />
+        </div>
+        <div>
+          <RecentActivity activities={dashboardData.activities} />
+        </div>
+      </div>
+    </>
+  );
+
+  const renderAdminDashboard = () => (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <StatsCard
+          title="Total Users"
+          value={dashboardData.stats.totalUsers}
+          icon={Users}
+          description="Total registered users in the system"
+        />
+        <StatsCard
+          title="Active Users"
+          value={dashboardData.stats.activeUsers}
+          icon={Activity}
+          description="Users active in last 30 days"
+        />
+        <StatsCard
+          title="User Growth"
+          value={`${dashboardData.stats.userGrowth}%`}
+          icon={TrendingUp}
+          trend={{ value: dashboardData.stats.userGrowth, isUpward: dashboardData.stats.userGrowth > 0 }}
+          description="New users in last 30 days"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <ChartCard
+            title="Monthly User Activity"
+            data={dashboardData.chartData}
+          />
+        </div>
+        <div>
+          <RecentActivity activities={dashboardData.activities} />
+        </div>
+      </div>
+    </>
+  );
+
+  const renderUserDashboard = () => (
+    <>
+      <div className="grid grid-cols-1 gap-6">
+        <StatsCard
+          title="Your Activity Status"
+          value="Active"
+          icon={Activity}
+          description="You are currently active in the system"
+        />
+        <ChartCard
+          title="Monthly System Activity"
+          data={dashboardData.chartData}
+        />
+      </div>
+    </>
+  );
+
+  const getDashboardContent = () => {
+    const category = user?.role_details?.category;
+    switch (category) {
+      case RoleCategory.SUPERADMIN:
+        return renderSuperAdminDashboard();
+      case RoleCategory.ADMIN:
+        return renderAdminDashboard();
+      case RoleCategory.USER:
+        return renderUserDashboard();
+      default:
+        return <div>Access Denied</div>;
+    }
+  };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
           Welcome back, {user?.first_name}!
         </h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          You are logged in as <span className="font-medium">{user?.role}</span>
+        <p className="text-gray-500">
+          Here's what's happening in your plant management system.
         </p>
       </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="overflow-hidden">
-            <CardHeader className={`bg-gradient-to-r ${stat.color}`}>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-white text-lg">{stat.title}</CardTitle>
-                <stat.icon className="w-6 h-6 text-white opacity-80" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {loading ? (
-                <div className="animate-pulse h-8 w-16 bg-gray-200 rounded" />
-              ) : (
-                <div className="text-3xl font-bold">{stat.value}</div>
-              )}
-              <p className="text-sm text-gray-500 mt-2">{stat.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* User's Plant Info (if assigned to a plant) */}
-      {user?.plant && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Plant</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium text-lg">{user.plant.name}</p>
-                <p className="text-sm text-gray-500">{user.plant.address}</p>
-              </div>
-              <Factory className="w-6 h-6 text-gray-400" />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {getDashboardContent()}
     </div>
   );
 };
