@@ -1,13 +1,13 @@
 from rest_framework import permissions
-from .models import User
+from .models import RoleCategory
 
 class IsSuperAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.role == User.Role.SUPERADMIN
+        return request.user.role.category == RoleCategory.SUPERADMIN
 
 class IsAdminUser(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.role in [User.Role.SUPERADMIN, User.Role.ADMIN]
+        return request.user.role.category in [RoleCategory.SUPERADMIN, RoleCategory.ADMIN]
 
 class HasChangedPasswordOrIsPasswordChange(permissions.BasePermission):
     """

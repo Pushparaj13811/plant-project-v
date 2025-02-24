@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from .serializers import UserRegistrationSerializer, UserLoginSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from users.serializers import UserSerializer
 
 # Create your views here.
 
@@ -95,23 +96,12 @@ class LoginView(APIView):
             print(f"Authentication result: {user}")
             if user:
                 refresh = RefreshToken.for_user(user)
+                # Use UserSerializer to properly serialize the user data
+                user_data = UserSerializer(user).data
                 return Response({
                     'refresh': str(refresh),
                     'access': str(refresh.access_token),
-                    'user': {
-                        'id': user.id,
-                        'email': user.email,
-                        'first_name': user.first_name,
-                        'last_name': user.last_name,
-                        'role': user.role,
-                        'force_password_change': user.force_password_change,
-                        'has_changed_password': user.has_changed_password,
-                        'plant': {
-                            'id': user.plant.id,
-                            'name': user.plant.name,
-                            'address': user.plant.address
-                        } if user.plant else None
-                    }
+                    'user': user_data
                 })
             return Response(
                 {'detail': 'Invalid email or password'}, 
