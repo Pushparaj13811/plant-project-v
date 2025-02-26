@@ -17,6 +17,10 @@ interface AuthResponse {
   refresh: string;
 }
 
+interface TokenResponse {
+  access: string;
+}
+
 interface ApiError {
   detail?: string;
   email?: string[];
@@ -32,6 +36,33 @@ const initialState: AuthState = {
   isLoading: false,
   error: null,
 };
+
+export const refreshAccessToken = createAsyncThunk<
+  TokenResponse,
+  void,
+  { state: { auth: AuthState }; rejectValue: string }
+>(
+  'auth/refreshToken',
+  async (_, { getState, rejectWithValue }) => {
+    const { refreshToken } = getState().auth;
+    if (!refreshToken) {
+      return rejectWithValue('No refresh token available');
+    }
+
+    try {
+      const response = await axios.post<TokenResponse>(
+        'http://localhost:8000/api/auth/token/refresh/',
+        { refresh: refreshToken }
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(error.response?.data?.detail || 'Failed to refresh token');
+      }
+      return rejectWithValue('Failed to refresh token');
+    }
+  }
+);
 
 export const loginUser = createAsyncThunk<
   AuthResponse,
@@ -152,6 +183,17 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Refresh token cases
+      .addCase(refreshAccessToken.fulfilled, (state, action) => {
+        state.token = action.payload.access;
+        state.error = null;
+      })
+      .addCase(refreshAccessToken.rejected, (state, action) => {
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
         state.error = action.payload as string;
       });
   },

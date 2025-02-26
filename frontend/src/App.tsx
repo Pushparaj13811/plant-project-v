@@ -12,7 +12,7 @@ import UserList from './pages/users/UserList'
 import EditUser from './pages/users/EditUser'
 import AddPlant from './pages/plants/AddPlant';
 import PlantList from './pages/plants/PlantList';
-import Settings from './pages/settings/Settings';
+import Settings from '@/pages/settings/Settings';
 import EditPlant from './pages/plants/EditPlant';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 import RoleList from './pages/roles/RoleList';
