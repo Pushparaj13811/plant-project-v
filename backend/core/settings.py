@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     # Local apps - make sure these are listed first
     'users.apps.UsersConfig',  # Update this line
     'authentication.apps.AuthenticationConfig',  # Update this line
+    'plant_data',  # Add this line
     
     # Third party apps
     'rest_framework',
