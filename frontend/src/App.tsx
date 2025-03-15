@@ -19,6 +19,10 @@ import RoleList from './pages/roles/RoleList';
 import AddRole from './pages/roles/AddRole';
 import EditRole from './pages/roles/EditRole';
 import { RoleCategory } from './types/models';
+import PlantDataVisualization from './pages/plant-data/PlantDataVisualization'
+import AddPlantData from './pages/plant-data/AddPlantData'
+import PlantData from './pages/plant-data/PlantData'
+import PlantDataSettings from '@/pages/plant-data/PlantDataSettings'
 
 function App() {
   return (
@@ -43,93 +47,120 @@ function App() {
                 <Dashboard />
               </ProtectedRoute>
             } />
-            
+
+            {/* Plant Data Routes */}
+            <Route path="plant-data" element={
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+                <PlantData />
+              </ProtectedRoute>
+            } />
+            <Route path="plant-data/add" element={
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+                <AddPlantData />
+              </ProtectedRoute>
+            } />
+            <Route path="plant-data/edit/:id" element={
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+                <AddPlantData />
+              </ProtectedRoute>
+            } />
+            <Route path="plant-data/settings" element={
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+                <PlantDataSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="plant-data/visualization" element={
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+                <PlantDataVisualization />
+              </ProtectedRoute>
+            } />
+
             {/* User Routes */}
-            <Route 
-              path="/users" 
+            <Route
+              path="/users"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <UserList />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/users/add" 
+            <Route
+              path="/users/add"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <AddUser />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/users/edit/:id" 
+            <Route
+              path="/users/edit/:id"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <EditUser />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* Role Routes */}
-            <Route 
-              path="/roles" 
+            <Route
+              path="/roles"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <RoleList />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/roles/add" 
+            <Route
+              path="/roles/add"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <AddRole />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/roles/edit/:id" 
+            <Route
+              path="/roles/edit/:id"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <EditRole />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Plant Routes */}
-            <Route 
-              path="/plants" 
+            <Route
+              path="/plants"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <PlantList />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/plants/add" 
+            <Route
+              path="/plants/add"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <AddPlant />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/plants/edit/:id" 
+            <Route
+              path="/plants/edit/:id"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
                   <EditPlant />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Settings Route */}
-            <Route 
-              path="/settings" 
+            <Route
+              path="/settings"
               element={
                 <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <Settings />
                 </ProtectedRoute>
-              } 
+              }
             />
           </Route>
         </Routes>

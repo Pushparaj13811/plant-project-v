@@ -8,27 +8,69 @@ import {
   Menu,
   X,
   LogOut,
-  UserCircle
+  UserCircle,
+  Database,
+  LineChart,
+  PlusCircle,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '@/redux/hooks';
 import { RoleCategory } from '@/types/models';
 import { logout } from '@/redux/features/authSlice';
 
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ size?: number }>;
+  allowedRoles?: RoleCategory[];
+  children?: Array<{
+    name: string;
+    href: string;
+    icon: React.ComponentType<{ size?: number }>;
+    allowedRoles?: RoleCategory[];
+  }>;
+}
+
 const Sidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const location = useLocation();
   const user = useAppSelector((state) => state.auth.user);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const navigation = [
+  const navigation: NavigationItem[] = [
     {
       name: 'Dashboard',
       href: '/dashboard',
       icon: LayoutDashboard,
       allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]
+    },
+    {
+      name: 'Plant Data',
+      href: '/plant-data',
+      icon: Database,
+      allowedRoles: [RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER],
+      children: [
+        {
+          name: 'View Records',
+          href: '/plant-data',
+          icon: Database
+        },
+        {
+          name: 'Add Record',
+          href: '/plant-data/add',
+          icon: PlusCircle
+        },
+        {
+          name: 'Visualization',
+          href: '/plant-data/visualization',
+          icon: LineChart
+        }
+      ]
     },
     {
       name: 'Users',
@@ -56,8 +98,35 @@ const Sidebar = () => {
     }
   ];
 
+  // Check if the current path is a child of a navigation item
+  const isChildActive = (item: NavigationItem) => {
+    if (!item.children) return false;
+    return item.children.some(child => location.pathname === child.href);
+  };
+
+  // Toggle expanded state for a menu item
+  const toggleExpanded = (itemName: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemName]: !prev[itemName]
+    }));
+  };
+
+  // Initialize expanded state based on active route
+  useEffect(() => {
+    const newExpandedItems: Record<string, boolean> = {};
+    navigation.forEach(item => {
+      if (item.children && (location.pathname === item.href || isChildActive(item))) {
+        newExpandedItems[item.name] = true;
+      }
+    });
+    setExpandedItems(newExpandedItems);
+  }, [location.pathname]);
+
   const filteredNavigation = navigation.filter(item => 
-    item.allowedRoles.includes(user?.role_details?.category as RoleCategory)
+    item.allowedRoles && item.allowedRoles.includes(user?.role_details?.category as RoleCategory)
   );
 
   const handleLogout = () => {
@@ -103,19 +172,65 @@ const Sidebar = () => {
             <ul className="space-y-1 px-3">
               {filteredNavigation.map((item) => (
                 <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                      location.pathname === item.href
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    )}
-                    onClick={() => setIsSidebarOpen(false)}
-                  >
-                    <item.icon size={20} />
-                    {item.name}
-                  </Link>
+                  <div className="relative">
+                    <Link
+                      to={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
+                        (location.pathname === item.href || isChildActive(item))
+                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      )}
+                      onClick={() => {
+                        if (!item.children) {
+                          setIsSidebarOpen(false);
+                        }
+                      }}
+                    >
+                      <item.icon size={20} />
+                      <span className="flex-1">{item.name}</span>
+                      {item.children && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "p-0 h-auto w-auto",
+                            (location.pathname === item.href || isChildActive(item)) ? "text-white" : "text-gray-500"
+                          )}
+                          onClick={(e) => toggleExpanded(item.name, e)}
+                        >
+                          {expandedItems[item.name] ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
+                        </Button>
+                      )}
+                    </Link>
+                  </div>
+                  {item.children && expandedItems[item.name] && (
+                    <ul className="ml-8 mt-2 space-y-1">
+                      {item.children
+                        .filter(child => !child.allowedRoles || child.allowedRoles.includes(user?.role_details?.category as RoleCategory))
+                        .map((child) => (
+                          <li key={child.name}>
+                            <Link
+                              to={child.href}
+                              className={cn(
+                                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                location.pathname === child.href
+                                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                              )}
+                              onClick={() => setIsSidebarOpen(false)}
+                            >
+                              <child.icon size={16} />
+                              {child.name}
+                            </Link>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>
