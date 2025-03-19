@@ -8,6 +8,11 @@ from .serializers import PlantRecordSerializer, FormulaVariableSerializer
 from users.models import RoleCategory
 from django.core.paginator import Paginator
 from rest_framework.views import APIView
+import os
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Create your views here.
 
@@ -173,25 +178,23 @@ class PlantRecordViewSet(viewsets.ModelViewSet):
 class ChatView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client = Groq(
+            api_key=os.getenv("GROQ_API_KEY"),
+        )
+    
     def post(self, request):
-        """Handle chat requests and generate responses"""
-        messages = request.data.get('messages', [])
+        """Handle chat requests using Groq API"""
+        message = request.data.get('message')
         plant_id = request.data.get('plant_id')
         start_date = request.data.get('start_date')
         end_date = request.data.get('end_date')
         
-        if not messages:
-            return Response({"error": "No messages provided"}, status=status.HTTP_400_BAD_REQUEST)
+        if not message:
+            return Response({"error": "No message provided"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get the last user message
-        last_message = next((m for m in reversed(messages) if m.get('role') == 'user'), None)
-        
-        if not last_message:
-            return Response({"error": "No user message found"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        user_query = last_message.get('content', '')
-        
-        # Get relevant data for the query - no role-based filtering
+        # Get relevant data for the query
         queryset = PlantRecord.objects.all()
         
         if plant_id:
@@ -203,68 +206,99 @@ class ChatView(APIView):
         if end_date:
             queryset = queryset.filter(date__lte=end_date)
         
-        # Generate a response based on the query
-        response_message = self.generate_response(user_query, queryset)
+        # Prepare context from the queryset
+        context = self.prepare_context(queryset)
         
-        return Response({
-            "message": response_message,
-            "data": None  # You can include data for visualization here if needed
-        })
+        # Create system message with context
+        system_message = {
+            "role": "system",
+            "content": f"""You are a helpful assistant for a plant data management system. 
+            You have access to the following data context:
+            {context}
+            
+            Please provide accurate and helpful responses based on this data. 
+            If the data is not sufficient to answer the query, please say so."""
+        }
+        
+        # Prepare messages for Groq
+        groq_messages = [
+            system_message,
+            {"role": "user", "content": message}
+        ]
+        
+        try:
+            # Call Groq API
+            chat_completion = self.client.chat.completions.create(
+                messages=groq_messages,
+                model="llama-3.3-70b-versatile",
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            response_message = chat_completion.choices[0].message.content
+            
+            return Response({
+                "message": response_message,
+                "data": None
+            })
+            
+        except Exception as e:
+            return Response({
+                "error": f"Failed to generate response: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def generate_response(self, query, queryset):
-        """Generate a response based on the user query and available data"""
-        query = query.lower()
-        
-        # Calculate some basic statistics
+    def prepare_context(self, queryset):
+        """Prepare context from the queryset for the AI"""
         count = queryset.count()
         
         if count == 0:
-            return "I don't have any data matching your criteria. Please try adjusting your filters."
+            return "No data available for the specified criteria."
         
-        # Handle different types of queries
-        if 'average' in query or 'mean' in query:
-            if 'rate' in query:
-                avg = queryset.aggregate(avg=Avg('rate'))['avg']
-                return f"The average rate is {avg:.2f}, calculated from {count} records."
-            
-            if 'oil' in query:
-                avg = queryset.aggregate(avg=Avg('oil'))['avg']
-                return f"The average oil content is {avg:.2f}%, calculated from {count} records."
-            
-            if 'starch' in query:
-                avg = queryset.aggregate(avg=Avg('starch'))['avg']
-                return f"The average starch content is {avg:.2f}%, calculated from {count} records."
-            
-            if 'fiber' in query:
-                avg = queryset.aggregate(avg=Avg('fiber'))['avg']
-                return f"The average fiber content is {avg:.2f}%, calculated from {count} records."
+        # Calculate basic statistics
+        stats = {
+            'total_records': count,
+            'date_range': {
+                'min': queryset.aggregate(min_date=Min('date'))['min_date'],
+                'max': queryset.aggregate(max_date=Max('date'))['max_date'],
+            },
+            'averages': {
+                'rate': queryset.aggregate(avg=Avg('rate'))['avg'],
+                'mv': queryset.aggregate(avg=Avg('mv'))['avg'],
+                'oil': queryset.aggregate(avg=Avg('oil'))['avg'],
+                'fiber': queryset.aggregate(avg=Avg('fiber'))['avg'],
+                'starch': queryset.aggregate(avg=Avg('starch'))['avg'],
+                'maize_rate': queryset.aggregate(avg=Avg('maize_rate'))['avg'],
+                'dm': queryset.aggregate(avg=Avg('dm'))['avg'],
+                'rate_on_dm': queryset.aggregate(avg=Avg('rate_on_dm'))['avg'],
+                'oil_value': queryset.aggregate(avg=Avg('oil_value'))['avg'],
+                'net_wo_oil_fiber': queryset.aggregate(avg=Avg('net_wo_oil_fiber'))['avg'],
+                'starch_per_point': queryset.aggregate(avg=Avg('starch_per_point'))['avg'],
+                'starch_value': queryset.aggregate(avg=Avg('starch_value'))['avg'],
+                'grain': queryset.aggregate(avg=Avg('grain'))['avg'],
+                'doc': queryset.aggregate(avg=Avg('doc'))['avg'],
+            }
+        }
         
-        if 'highest' in query or 'maximum' in query:
-            if 'rate' in query:
-                max_val = queryset.aggregate(max=Max('rate'))['max']
-                return f"The highest rate is {max_val:.2f}."
-            
-            if 'oil' in query:
-                max_val = queryset.aggregate(max=Max('oil'))['max']
-                return f"The highest oil content is {max_val:.2f}%."
+        # Format the context
+        context = f"""
+        Total Records: {stats['total_records']}
+        Date Range: {stats['date_range']['min']} to {stats['date_range']['max']}
         
-        if 'lowest' in query or 'minimum' in query:
-            if 'rate' in query:
-                min_val = queryset.aggregate(min=Min('rate'))['min']
-                return f"The lowest rate is {min_val:.2f}."
-            
-            if 'oil' in query:
-                min_val = queryset.aggregate(min=Min('oil'))['min']
-                return f"The lowest oil content is {min_val:.2f}%."
+        Averages:
+        - Rate: {stats['averages']['rate']:.2f}
+        - MV: {stats['averages']['mv']:.2f}
+        - Oil: {stats['averages']['oil']:.2f}%
+        - Fiber: {stats['averages']['fiber']:.2f}%
+        - Starch: {stats['averages']['starch']:.2f}%
+        - Maize Rate: {stats['averages']['maize_rate']:.2f}
+        - DM: {stats['averages']['dm']:.2f}
+        - Rate on DM: {stats['averages']['rate_on_dm']:.2f}
+        - Oil Value: {stats['averages']['oil_value']:.2f}
+        - Net (wo Oil & Fiber): {stats['averages']['net_wo_oil_fiber']:.2f}
+        - Starch Per Point: {stats['averages']['starch_per_point']:.2f}
+        - Starch Value: {stats['averages']['starch_value']:.2f}
+        - Grain: {stats['averages']['grain']:.2f}
+        - DOC: {stats['averages']['doc']:.2f}
+        """
         
-        if 'trend' in query or 'over time' in query:
-            return "I can see some interesting trends in the data. The values fluctuate over time, with some periods showing higher values than others."
-        
-        if 'compare' in query:
-            if 'oil' in query and 'starch' in query:
-                oil_avg = queryset.aggregate(avg=Avg('oil'))['avg']
-                starch_avg = queryset.aggregate(avg=Avg('starch'))['avg']
-                return f"Comparing oil and starch: The average oil content is {oil_avg:.2f}% while the average starch content is {starch_avg:.2f}%."
-        
-        # Default response
-        return f"I've analyzed {count} plant records. What specific information would you like to know about the data?"
+        return context

@@ -90,4 +90,16 @@ api.interceptors.response.use(
   }
 );
 
-export default api; 
+export default api;
+
+export const chatApi = {
+  sendMessage: async (message: string, plantId?: number, startDate?: string, endDate?: string) => {
+    const response = await api.post('/plant-data/chat/', {
+      message,
+      plant_id: plantId,
+      start_date: startDate,
+      end_date: endDate
+    });
+    return response.data;
+  }
+}; 

@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { setSelectedPlant } from '@/redux/features/plantSlice';
+import { chatApi } from '../../services/api';
 
 // Simulate Avatar components if not available
 const Avatar = ({ className, children }: { className?: string, children: React.ReactNode }) => (
@@ -83,11 +84,11 @@ export default function PlantDataVisualization() {
   const [compareMetric, setCompareMetric] = useState<string>("rate");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState<string>("");
-  const [isChatLoading, setIsChatLoading] = useState<boolean>(false);
   const [isChatVisible, setIsChatVisible] = useState<boolean>(true);
   const [exportFormat, setExportFormat] = useState<string>("png");
   const [plants, setPlants] = useState<Plant[]>([]);
   const [isLoadingPlants, setIsLoadingPlants] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const selectedPlant = useAppSelector((state: RootState) => state.plants.selectedPlant);
   const [localSelectedPlant, setLocalSelectedPlant] = useState<Plant | null>(null);
@@ -252,64 +253,25 @@ export default function PlantDataVisualization() {
     setStatistics(stats);
   };
 
-  const sendMessage = async () => {
-    if (!chatInput.trim() || !localSelectedPlant) return;
-    
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      content: chatInput,
-      role: 'user',
-      timestamp: new Date()
-    };
-    
-    setChatMessages(prev => [...prev, userMessage]);
-    setChatInput('');
-    setIsChatLoading(true);
-    
-    // Scroll to bottom
-    setTimeout(() => {
-      if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-      }
-    }, 100);
+  const sendMessage = async (message: string) => {
+    if (!message.trim() || !selectedPlant) return;
     
     try {
-      // Prepare messages for API
-      const messages = chatMessages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
+      setIsLoading(true);
+      const response = await chatApi.sendMessage(
+        message,
+        selectedPlant.id,
+        startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
+        endDate ? format(endDate, 'yyyy-MM-dd') : undefined
+      );
       
-      // Add the new user message
-      messages.push({
+      const userMessage: ChatMessage = {
+        id: Date.now().toString(),
+        content: message,
         role: 'user',
-        content: userMessage.content
-      });
-      
-      // Prepare request data with current selected plant
-      const requestData: {
-        messages: { role: 'user' | 'assistant', content: string }[];
-        plant_id?: number;
-        start_date?: string;
-        end_date?: string;
-      } = {
-        messages,
-        plant_id: localSelectedPlant.id // Always use current plant
+        timestamp: new Date()
       };
       
-      // Add date range if available
-      if (startDate) {
-        requestData.start_date = format(startDate, 'yyyy-MM-dd');
-      }
-      
-      if (endDate) {
-        requestData.end_date = format(endDate, 'yyyy-MM-dd');
-      }
-      
-      // Send to API
-      const response = await plantDataApi.sendChatMessage(requestData);
-      
-      // Add assistant response
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         content: response.message,
@@ -317,35 +279,20 @@ export default function PlantDataVisualization() {
         timestamp: new Date()
       };
       
-      setChatMessages(prev => [...prev, assistantMessage]);
+      setChatMessages(prev => [...prev, userMessage, assistantMessage]);
+      setChatInput('');
       
-      // If there's data in the response, update visualization
-      if (response.data) {
-        // Handle any visualization updates based on response data
-        toast.success("Updated visualization based on your query");
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error("Failed to get a response from the assistant");
-      
-      // Add error message
-      const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        content: "I'm sorry, I couldn't process your request. Please try again.",
-        role: 'assistant',
-        timestamp: new Date()
-      };
-      
-      setChatMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsChatLoading(false);
-      
-      // Scroll to bottom again after response
+      // Scroll to bottom
       setTimeout(() => {
         if (chatContainerRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
       }, 100);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -879,7 +826,7 @@ export default function PlantDataVisualization() {
               ))
             )}
             
-            {isChatLoading && (
+            {isLoading && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-lg p-3 bg-muted">
                   <div className="flex items-center gap-2">
@@ -897,7 +844,7 @@ export default function PlantDataVisualization() {
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
-                sendMessage();
+                sendMessage(chatInput);
               }}
               className="flex gap-2"
             >
@@ -907,8 +854,22 @@ export default function PlantDataVisualization() {
                 placeholder="Type your message..."
                 className="flex-1"
               />
-              <Button type="submit" size="icon" disabled={isChatLoading || !chatInput.trim()}>
-                <Send className="h-4 w-4" />
+              <Button 
+                type="submit" 
+                disabled={isLoading || !chatInput.trim()}
+                className="flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Send
+                  </>
+                )}
               </Button>
             </form>
           </div>
