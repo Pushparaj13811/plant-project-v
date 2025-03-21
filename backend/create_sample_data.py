@@ -1,6 +1,7 @@
 import os
 import django
 import datetime
+import random
 from decimal import Decimal
 
 # Set up Django environment
@@ -19,6 +20,30 @@ def create_sample_records():
         print("No matching plants found in the database.")
         return
     
+    # List of 20 unique party names
+    party_names = [
+        "Radha Enterprises - Kichha",
+        "Shree Ram Trading Co.",
+        "Mahadev Agro Industries",
+        "Hari Om Grain Suppliers",
+        "Krishna Food Processing",
+        "Annapurna Agro Traders",
+        "Ganesh Agri Solutions",
+        "Vishnu Agri Products",
+        "Balaji Grain Suppliers",
+        "Shakti Trading Company",
+        "Ganga Agro Mills",
+        "Shree Krishna Enterprises",
+        "Laxmi Agri Traders",
+        "Om Sai Agro Exports",
+        "Jay Ambe Commodities",
+        "Parvati Food Industries",
+        "Shree Shyam Agro Tech",
+        "Durga Agri Business",
+        "Shree Siddhivinayak Traders",
+        "Rudra Agro Corporation"
+    ]
+    
     for plant in plants:
         print(f"Creating sample records for plant: {plant.name} (ID: {plant.id})")
         
@@ -36,11 +61,11 @@ def create_sample_records():
             record = PlantRecord.objects.create(
                 plant=plant,
                 date=date,
-                code=f'TEST{plant.id}_{i}',
+                code=f'PLANT{plant.id}_{i}',
                 product='Maize',
                 truck_no=f'TN-{plant.id}-{i}',
                 bill_no=f'BN-{plant.id}-{i}',
-                party_name=f'Test Party {plant.id}',
+                party_name=random.choice(party_names),  # Randomly selecting from 20 unique names
                 rate=Decimal(base_rate),
                 mv=Decimal(mv_value),
                 oil=Decimal(oil_value),
@@ -49,7 +74,7 @@ def create_sample_records():
                 maize_rate=Decimal(maize_rate)
             )
             
-            print(f"Created record for Plant {plant.id} - Entry {i+1}: {record}")
+            print(f"Created record for Plant {plant.id} - Entry {i+1}: {record.party_name}")
     
     print("Sample data creation complete!")
 

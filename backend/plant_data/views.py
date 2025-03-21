@@ -208,6 +208,8 @@ class ChatView(APIView):
         
         # Prepare context from the queryset
         context = self.prepare_context(queryset)
+
+        print(context)
         
         # Create system message with context
         system_message = {
@@ -261,44 +263,46 @@ class ChatView(APIView):
                 'min': queryset.aggregate(min_date=Min('date'))['min_date'],
                 'max': queryset.aggregate(max_date=Max('date'))['max_date'],
             },
-            'averages': {
-                'rate': queryset.aggregate(avg=Avg('rate'))['avg'],
-                'mv': queryset.aggregate(avg=Avg('mv'))['avg'],
-                'oil': queryset.aggregate(avg=Avg('oil'))['avg'],
-                'fiber': queryset.aggregate(avg=Avg('fiber'))['avg'],
-                'starch': queryset.aggregate(avg=Avg('starch'))['avg'],
-                'maize_rate': queryset.aggregate(avg=Avg('maize_rate'))['avg'],
-                'dm': queryset.aggregate(avg=Avg('dm'))['avg'],
-                'rate_on_dm': queryset.aggregate(avg=Avg('rate_on_dm'))['avg'],
-                'oil_value': queryset.aggregate(avg=Avg('oil_value'))['avg'],
-                'net_wo_oil_fiber': queryset.aggregate(avg=Avg('net_wo_oil_fiber'))['avg'],
-                'starch_per_point': queryset.aggregate(avg=Avg('starch_per_point'))['avg'],
-                'starch_value': queryset.aggregate(avg=Avg('starch_value'))['avg'],
-                'grain': queryset.aggregate(avg=Avg('grain'))['avg'],
-                'doc': queryset.aggregate(avg=Avg('doc'))['avg'],
-            }
         }
         
-        # Format the context
+        # Format the basic statistics
         context = f"""
         Total Records: {stats['total_records']}
         Date Range: {stats['date_range']['min']} to {stats['date_range']['max']}
         
-        Averages:
-        - Rate: {stats['averages']['rate']:.2f}
-        - MV: {stats['averages']['mv']:.2f}
-        - Oil: {stats['averages']['oil']:.2f}%
-        - Fiber: {stats['averages']['fiber']:.2f}%
-        - Starch: {stats['averages']['starch']:.2f}%
-        - Maize Rate: {stats['averages']['maize_rate']:.2f}
-        - DM: {stats['averages']['dm']:.2f}
-        - Rate on DM: {stats['averages']['rate_on_dm']:.2f}
-        - Oil Value: {stats['averages']['oil_value']:.2f}
-        - Net (wo Oil & Fiber): {stats['averages']['net_wo_oil_fiber']:.2f}
-        - Starch Per Point: {stats['averages']['starch_per_point']:.2f}
-        - Starch Value: {stats['averages']['starch_value']:.2f}
-        - Grain: {stats['averages']['grain']:.2f}
-        - DOC: {stats['averages']['doc']:.2f}
+        Individual Records:
         """
+        
+        # Add all records data (limit to a reasonable number to avoid context length issues)
+        max_records = 50  # Adjust this number based on your needs and context limits
+        records = queryset.order_by('-date')[:max_records]
+        
+        for i, record in enumerate(records, 1):
+            context += f"""
+        Record {i}:
+        - Date: {record.date}
+        - Code: {record.code}
+        - Product: {record.product}
+        - Truck No: {record.truck_no}
+        - Bill No: {record.bill_no}
+        - Party Name: {record.party_name}
+        - Rate: {record.rate}
+        - MV: {record.mv}
+        - Oil: {record.oil}
+        - Fiber: {record.fiber}
+        - Starch: {record.starch}
+        - Maize Rate: {record.maize_rate}
+        - DM: {record.dm}
+        - Rate on DM: {record.rate_on_dm}
+        - Oil Value: {record.oil_value}
+        - Net (wo Oil & Fiber): {record.net_wo_oil_fiber}
+        - Starch Per Point: {record.starch_per_point}
+        - Starch Value: {record.starch_value}
+        - Grain: {record.grain}
+        - DOC: {record.doc}
+        """
+        
+        if count > max_records:
+            context += f"\n(Showing {max_records} of {count} total records)"
         
         return context
