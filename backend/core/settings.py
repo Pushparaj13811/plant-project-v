@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-# ALLOWED_HOSTS = ['*']  # Update this for production
+ALLOWED_HOSTS = ['*']  # Update this for production
 
 # Frontend URL for email links
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
@@ -105,11 +105,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
-    "https://192e-2a09-bac5-3c49-11c3-00-1c5-1a.ngrok-free.app",
+    "https://adda-2a09-bac5-3c49-11c3-00-1c5-1a.ngrok-free.app",
 ]
 
-# For development convenience, you can also use the following setting instead
-# which allows all origins, but it's less secure for production
+# For development, you can use the following setting to dynamically allow ngrok URLs
+# This is less secure but more convenient during development with changing ngrok URLs
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.ngrok-free\.app$",
+]
+
+# For development convenience, uncomment this if you're having persistent CORS issues
 # CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
