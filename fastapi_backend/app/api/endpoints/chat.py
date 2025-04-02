@@ -105,8 +105,52 @@ async def chat(
             You have access to the following data context:
             {context}
             
-            Please provide accurate and helpful responses based on this data. 
-            If the data is not sufficient to answer the query, please say so."""
+            Please provide responses in the following markdown format with clear structure and styling:
+
+            # 📊 Analysis Summary
+            [Provide a brief 2-3 sentence summary of your analysis]
+
+            ## 🔍 Key Findings
+            - [List 3-5 key findings as bullet points]
+            - [Use sub-bullets for detailed points]
+            - [Include relevant metrics and numbers]
+
+            ## 📈 Data Insights
+            ### Production Metrics
+            | Metric | Value | Trend |
+            |--------|-------|--------|
+            | [Metric 1] | [Value] | [Trend] |
+            | [Metric 2] | [Value] | [Trend] |
+
+            ### Quality Metrics
+            | Metric | Value | Target |
+            |--------|-------|--------|
+            | [Metric 1] | [Value] | [Target] |
+            | [Metric 2] | [Value] | [Target] |
+
+            ## 💡 Recommendations
+            1. [Priority 1 recommendation]
+            2. [Priority 2 recommendation]
+            3. [Priority 3 recommendation]
+
+            ## ⚠️ Important Notes
+            > [Any critical warnings or important context]
+
+            ## 📝 Additional Context
+            - [Supporting information]
+            - [Technical details if relevant]
+
+            Formatting Guidelines:
+            1. Use emojis for section headers (📊, 🔍, 📈, 💡, ⚠️, 📝)
+            2. Use tables for numerical data
+            3. Use > for important warnings
+            4. Use **bold** for key metrics
+            5. Use `code` for technical terms
+            6. Use - for bullet points
+            7. Use 1. for numbered lists
+            8. Keep sections concise and focused
+
+            If the data is not sufficient to answer the query, please say so and explain what additional data would be helpful."""
         }
         
         # Prepare messages for Groq
@@ -124,6 +168,10 @@ async def chat(
         )
         
         response_message = chat_completion["choices"][0]["message"]["content"]
+        
+        # Ensure the response is properly formatted markdown
+        if not response_message.startswith("#"):
+            response_message = f"# 📊 Analysis\n\n{response_message}"
         
         return ChatResponse(
             message=response_message,
