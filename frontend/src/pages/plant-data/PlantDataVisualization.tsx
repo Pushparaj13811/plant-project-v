@@ -39,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { setSelectedPlant } from '@/redux/features/plantSlice';
 import { chatApi } from '../../services/api';
+import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
 
 // Simulate Avatar components if not available
 const Avatar = ({ className, children }: { className?: string, children: React.ReactNode }) => (
@@ -146,6 +147,17 @@ export default function PlantDataVisualization() {
     // Scroll to bottom of chat when new messages come in
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  // Add logging effect
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      console.log("Current chat messages:", chatMessages);
+      const lastMessage = chatMessages[chatMessages.length - 1];
+      if (lastMessage.role === 'assistant') {
+        console.log("Last assistant message content:", lastMessage.content);
+      }
     }
   }, [chatMessages]);
 
@@ -258,12 +270,16 @@ export default function PlantDataVisualization() {
     
     try {
       setIsLoading(true);
+      console.log("Sending message:", message);
+      
       const response = await chatApi.sendMessage(
         message,
         selectedPlant.id,
         startDate ? format(startDate, 'yyyy-MM-dd') : undefined,
         endDate ? format(endDate, 'yyyy-MM-dd') : undefined
       );
+      
+      console.log("Received response:", response);
       
       const userMessage: ChatMessage = {
         id: Date.now().toString(),
@@ -278,6 +294,8 @@ export default function PlantDataVisualization() {
         role: 'assistant',
         timestamp: new Date()
       };
+      
+      console.log("Adding new messages:", { userMessage, assistantMessage });
       
       setChatMessages(prev => [...prev, userMessage, assistantMessage]);
       setChatInput('');
@@ -796,34 +814,48 @@ export default function PlantDataVisualization() {
                 )}
               </div>
             ) : (
-              chatMessages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+              chatMessages.map((message) => {
+                console.log("Rendering message:", message);
+                const isAssistantMessage = message.role === 'assistant';
+                if (isAssistantMessage) {
+                  console.log("Rendering assistant message with content:", message.content);
+                }
+                
+                return (
                   <div 
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}
+                    key={message.id} 
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="flex items-start gap-2">
-                      {message.role === 'assistant' && (
-                        <Avatar className="h-6 w-6 bg-primary">
-                          <AvatarFallback className="text-xs text-white">AI</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div>
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {format(message.timestamp, 'HH:mm')}
-                        </p>
+                    <div 
+                      className={`max-w-[80%] rounded-lg p-3 ${
+                        message.role === 'user' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-white dark:bg-gray-800 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {message.role === 'assistant' && (
+                          <Avatar className="h-6 w-6 bg-primary shrink-0">
+                            <AvatarFallback className="text-xs text-white">AI</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className="w-full overflow-hidden">
+                          {message.role === 'assistant' ? (
+                            <div className="text-foreground">
+                              <MarkdownRenderer content={message.content} />
+                            </div>
+                          ) : (
+                            <p className="text-sm">{message.content}</p>
+                          )}
+                          <p className="text-xs opacity-70 mt-1">
+                            {format(message.timestamp, 'HH:mm')}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             
             {isLoading && (
