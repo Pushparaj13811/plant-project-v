@@ -7,6 +7,7 @@ from app.api.api import api_router
 from app.core.config import settings
 from app.core.database import get_db, Base, engine
 from app.core.logging import setup_logging
+from app.db.init_db import init_db
 
 # Setup logging
 setup_logging()
@@ -38,7 +39,18 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 async def startup_event():
     # Create tables if they don't exist
     Base.metadata.create_all(bind=engine)
-    logger.info("Application startup complete - database initialized")
+    
+    # Initialize database with default data
+    db = next(get_db())
+    try:
+        init_db(db)
+        logger.info("Database initialized with default data")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+    finally:
+        db.close()
+    
+    logger.info("Application startup complete")
 
 
 @app.on_event("shutdown")

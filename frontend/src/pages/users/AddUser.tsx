@@ -9,8 +9,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Role, Plant } from '@/types/models';
 import api from '@/services/api';
 import { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/services/api';
-import { store } from '@/redux/store';
 import { ArrowLeft, Loader2, UserCog } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -25,7 +23,12 @@ const AddUser = () => {
     first_name: '',
     last_name: '',
     role_id: '',
-    plant_id: ''
+    plant_id: '',
+    is_active: true,
+    is_superuser: false,
+    is_staff: false,
+    has_changed_password: false,
+    password: 'temp123!' // Temporary password that user will change on first login
   });
 
   const [plants, setPlants] = useState<Plant[]>([]);
@@ -51,35 +54,58 @@ const AddUser = () => {
     setIsLoading(true);
     setError(null);
 
-    console.log('Sending form data:', formData);
-    console.log('Auth token:', store.getState().auth.token);
+    // Convert string IDs to numbers and prepare the data
+    const submitData = {
+      ...formData,
+      role_id: formData.role_id ? parseInt(formData.role_id) : undefined,
+      plant_id: formData.plant_id ? parseInt(formData.plant_id) : null
+    };
 
     try {
-      const response = await api.post('/management/users/', formData);
+      const response = await api.post('/management/users/', submitData);
       console.log('Success response:', response.data);
       navigate('/users');
     } catch (error) {
       console.error('Full error object:', error);
       if (error instanceof AxiosError) {
-        const data = error.response?.data as ApiErrorResponse;
-        console.log('Error response data:', data);
-        console.log('Error response status:', error.response?.status);
-        console.log('Error response headers:', error.response?.headers);
+        const data = error.response?.data;
         
         if (error.response?.status === 401) {
           setError('Authentication failed. Please log in again.');
-        } else if (error.response?.status === 400) {
-          const errorMessages: string[] = [];
-          if (typeof data === 'object' && data !== null) {
-            Object.entries(data).forEach(([field, errors]) => {
-              if (Array.isArray(errors)) {
-                errorMessages.push(`${field}: ${errors.join(', ')}`);
-              } else if (typeof errors === 'string') {
-                errorMessages.push(`${field}: ${errors}`);
+        } else if (error.response?.status === 422) {
+          // Handle validation errors
+          const validationErrors = data.detail;
+          if (Array.isArray(validationErrors)) {
+            const errorMessages = validationErrors.map(err => {
+              if (typeof err === 'object' && err.msg) {
+                return err.msg;
               }
+              return String(err);
             });
+            setError(errorMessages.join('\n'));
+          } else if (typeof data.detail === 'string') {
+            setError(data.detail);
+          } else {
+            setError('Invalid form data');
           }
-          setError(errorMessages.length > 0 ? errorMessages.join('\n') : 'Invalid form data');
+        } else if (error.response?.status === 400) {
+          // Handle bad request errors
+          if (typeof data === 'object' && data !== null) {
+            const errorMessages = Object.entries(data)
+              .map(([field, errors]) => {
+                if (Array.isArray(errors)) {
+                  return `${field}: ${errors.join(', ')}`;
+                }
+                if (typeof errors === 'string') {
+                  return `${field}: ${errors}`;
+                }
+                return null;
+              })
+              .filter(Boolean);
+            setError(errorMessages.join('\n'));
+          } else {
+            setError('Invalid request data');
+          }
         } else {
           setError(data?.detail || 'Failed to create user');
         }
@@ -161,6 +187,7 @@ const AddUser = () => {
                 <Select
                   value={formData.role_id}
                   onValueChange={(value) => setFormData({ ...formData, role_id: value })}
+                  required
                 >
                   <SelectTrigger className="focus-visible:ring-blue-500">
                     <SelectValue placeholder="Select role" />
@@ -197,19 +224,21 @@ const AddUser = () => {
 
             {error && (
               <Alert variant="destructive">
-                <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
+                <AlertDescription>
+                  <div className="whitespace-pre-line">{error}</div>
+                </AlertDescription>
               </Alert>
             )}
           </CardContent>
           <CardFooter>
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={isLoading}
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating User...
                 </>
               ) : (

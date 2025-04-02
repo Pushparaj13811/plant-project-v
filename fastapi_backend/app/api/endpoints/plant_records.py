@@ -1,20 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
-from typing import Any, List, Optional, Dict
+from typing import Any, List, Optional, Dict, Union
 from datetime import date
 
 from app.core.database import get_db
 from app.crud import plant_record
 from app.schemas import (
     PlantRecordCreate, PlantRecordUpdate, PlantRecordInDB, 
-    PlantRecordStatistics, ColumnCategories
+    PlantRecordStatistics, ColumnCategories, PlantRecordPagination
 )
 from app.api.dependencies.auth import get_current_active_user
 from app.models.user import User
 
 router = APIRouter()
 
-@router.get("/", response_model=List[PlantRecordInDB])
+@router.get("/", response_model=Union[List[PlantRecordInDB], PlantRecordPagination])
 def read_plant_records(
     *,
     db: Session = Depends(get_db),
@@ -31,6 +31,35 @@ def read_plant_records(
     """
     Retrieve plant records with filtering and pagination
     """
+    # Handle plant-specific access control
+    if not current_user.is_superuser:
+        if current_user.role.category == "admin":
+            # Admin can only access their assigned plant's records
+            if current_user.plant_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin user is not assigned to any plant"
+                )
+            if plant_id and plant_id != current_user.plant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin can only access their assigned plant's records"
+                )
+            plant_id = current_user.plant_id
+        elif current_user.role.category == "user":
+            # Regular user can only access their assigned plant's records
+            if current_user.plant_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User is not assigned to any plant"
+                )
+            if plant_id and plant_id != current_user.plant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User can only access their assigned plant's records"
+                )
+            plant_id = current_user.plant_id
+
     # If explicit pagination parameters are provided, use them
     if page is not None and per_page is not None:
         skip = (page - 1) * per_page
@@ -80,6 +109,19 @@ def create_plant_record(
     """
     Create new plant record
     """
+    # Handle plant-specific access control for record creation
+    if not current_user.is_superuser:
+        if current_user.plant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not assigned to any plant"
+            )
+        if plant_record_in.plant_id != current_user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User can only create records for their assigned plant"
+            )
+
     record = plant_record.create(db, obj_in=plant_record_in)
     return record
 
@@ -99,6 +141,20 @@ def read_plant_record(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Plant record not found",
         )
+
+    # Handle plant-specific access control
+    if not current_user.is_superuser:
+        if current_user.plant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not assigned to any plant"
+            )
+        if record.plant_id != current_user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User can only access records from their assigned plant"
+            )
+
     return record
 
 @router.patch("/{id}", response_model=PlantRecordInDB)
@@ -118,6 +174,19 @@ def update_plant_record(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Plant record not found",
         )
+    
+    # Handle plant-specific access control
+    if not current_user.is_superuser:
+        if current_user.plant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not assigned to any plant"
+            )
+        if record.plant_id != current_user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User can only update records from their assigned plant"
+            )
     
     # Update plant record
     record = plant_record.update(db, db_obj=record, obj_in=plant_record_in)
@@ -139,6 +208,19 @@ def delete_plant_record(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Plant record not found",
         )
+    
+    # Handle plant-specific access control
+    if not current_user.is_superuser:
+        if current_user.plant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not assigned to any plant"
+            )
+        if record.plant_id != current_user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User can only delete records from their assigned plant"
+            )
     
     # Delete plant record
     record = plant_record.remove(db, id=id)

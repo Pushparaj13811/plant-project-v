@@ -1,7 +1,7 @@
 export enum RoleCategory {
-  SUPERADMIN = 'SUPERADMIN',
-  ADMIN = 'ADMIN',
-  USER = 'USER'
+  SUPERADMIN = 'super_admin',
+  ADMIN = 'admin',
+  USER = 'user'
 }
 
 export enum PlantDataTable {
@@ -36,7 +36,9 @@ export interface Role {
 export interface Plant {
   id: number;
   name: string;
-  address: string;
+  location: string;
+  description: string;
+  is_active: boolean;
 }
 
 export interface User {

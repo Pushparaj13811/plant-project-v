@@ -12,18 +12,19 @@ import { Plant } from '@/types/models';
 import { plantDataApi, PlantRecord, FormulaVariable } from '@/services/plantDataApi';
 import { ChevronDown, ArrowLeft, Calculator } from 'lucide-react';
 import toast from '@/utils/toast';
+import { AxiosError } from 'axios';
 
 const AddPlantData = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const isEditing = !!id;
-  
+
   const [plants, setPlants] = useState<Plant[]>([]);
   const [formulaVariables, setFormulaVariables] = useState<FormulaVariable[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState<Partial<PlantRecord>>({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -39,53 +40,64 @@ const AddPlantData = () => {
     starch: 0,
     maize_rate: 0,
   });
-  
+
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  
+
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [plantsData, variablesData] = await Promise.all([
-          plantDataApi.getPlants(),
-          plantDataApi.getFormulaVariables()
-        ]);
-        
-        setPlants(plantsData);
-        setFormulaVariables(variablesData);
-        
+
+        const plantData = await plantDataApi.getPlants();
+
+        if (!plantData || plantData.length === 0) {
+          toast.error("No plants available. Please contact your administrator to assign you to a plant.");
+          navigate('/plant-data');
+          return;
+        }
+
+        setPlants(plantData)
+        const variableData = await plantDataApi.getFormulaVariables();
+        setFormulaVariables(variableData);
+
+
         // If we have a plant from location state, use it
         if (location.state?.plant) {
           setFormData(prev => ({
             ...prev,
             plant_id: location.state.plant.id
           }));
-        } else if (plantsData.length > 0) {
+        } else if (plantData.length > 0) {
           // Otherwise use the first plant
           setFormData(prev => ({
             ...prev,
-            plant_id: plantsData[0].id
+            plant_id: plantData[0].id
           }));
         }
       } catch (error) {
         console.error('Error loading data:', error);
-        toast.error("Failed to load data");
+        if (error instanceof AxiosError && error.response?.status === 403) {
+          toast.error("You don't have access to any plants. Please contact your administrator.");
+          navigate('/plant-data');
+        } else {
+          toast.error("Failed to load data");
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     loadData();
-    
+
     // If editing, load the record
     if (isEditing) {
       loadRecord();
     }
-  }, [isEditing, id, location.state]);
-  
+  }, [isEditing, id, location.state, navigate]);
+
   const loadRecord = async () => {
     if (!id) return;
-    
+
     setIsLoading(true);
     try {
       const record = await plantDataApi.getPlantRecord(parseInt(id));
@@ -101,23 +113,23 @@ const AddPlantData = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'number' ? parseFloat(value) : value
     }));
   };
-  
+
   const handlePlantChange = (value: string) => {
     setFormData(prev => ({
       ...prev,
       plant_id: parseInt(value)
     }));
   };
-  
+
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setSelectedDate(date);
@@ -139,33 +151,33 @@ const AddPlantData = () => {
     // Get the necessary formula variables
     const oil_value_factor = getFormulaVariable('oil_value_factor');
     const starch_per_point_divisor = getFormulaVariable('starch_per_point_divisor');
-    
+
     // Check if we have all required inputs
     if (!formData.oil || !formData.starch || !formData.maize_rate) {
       toast.error("Missing required inputs for rate calculation");
       return;
     }
-    
+
     // Simple example calculation (this can be adjusted based on business needs)
     // For example: rate = (oil * oil_value_factor) + (starch * maize_rate / starch_per_point_divisor)
     const oilComponent = formData.oil * oil_value_factor;
     const starchComponent = formData.starch * (formData.maize_rate / starch_per_point_divisor);
     const calculatedRate = oilComponent + starchComponent;
-    
+
     setFormData(prev => ({
       ...prev,
       rate: parseFloat(calculatedRate.toFixed(2))
     }));
-    
+
     toast.success("Rate calculated successfully");
   };
-  
+
   // Handle formula variable update
-  const handleUpdateFormulaVariable = async (id: number, value: number) => {
+  const handleUpdateFormulaVariable = async (name: string, value: number) => {
     try {
-      const updatedVariable = await plantDataApi.updateFormulaVariable(id, value);
-      setFormulaVariables(prev => 
-        prev.map(v => v.id === id ? updatedVariable : v)
+      const updatedVariable = await plantDataApi.updateFormulaVariable(name, value);
+      setFormulaVariables(prev =>
+        prev.map(v => v.name === name ? updatedVariable : v)
       );
       toast.success("Formula variable updated successfully");
     } catch (error) {
@@ -173,28 +185,28 @@ const AddPlantData = () => {
       toast.error("Failed to update formula variable");
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.plant_id) {
       toast.error("Please select a plant");
       return;
     }
-    
+
     // Validate required fields
     const requiredFields = [
       'date', 'code', 'product', 'truck_no', 'bill_no', 'party_name',
       'rate', 'mv', 'oil', 'fiber', 'starch', 'maize_rate'
     ];
-    
+
     for (const field of requiredFields) {
       if (!formData[field as keyof typeof formData]) {
         toast.error(`${field.replace('_', ' ')} is required`);
         return;
       }
     }
-    
+
     setIsSaving(true);
     try {
       if (isEditing && id) {
@@ -212,16 +224,16 @@ const AddPlantData = () => {
       setIsSaving(false);
     }
   };
-  
+
   if (isLoading) {
     return <div className="p-8 text-center">Loading record...</div>;
   }
-  
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex items-center mb-6">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => navigate('/plant-data')}
           className="mr-4"
         >
@@ -230,7 +242,7 @@ const AddPlantData = () => {
         </Button>
         <h1 className="text-2xl font-bold">{isEditing ? 'Edit' : 'Add'} Plant Record</h1>
       </div>
-      
+
       <form onSubmit={handleSubmit}>
         <Card className="mb-6">
           <CardHeader>
@@ -256,7 +268,7 @@ const AddPlantData = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label>Date</Label>
                 <Popover>
@@ -276,7 +288,7 @@ const AddPlantData = () => {
                   </PopoverContent>
                 </Popover>
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="code">Code</Label>
                 <Input
@@ -287,7 +299,7 @@ const AddPlantData = () => {
                   placeholder="Enter code"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="product">Product</Label>
                 <Input
@@ -298,7 +310,7 @@ const AddPlantData = () => {
                   placeholder="Enter product"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="truck_no">Truck No</Label>
                 <Input
@@ -309,7 +321,7 @@ const AddPlantData = () => {
                   placeholder="Enter truck number"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="bill_no">Bill No</Label>
                 <Input
@@ -320,7 +332,7 @@ const AddPlantData = () => {
                   placeholder="Enter bill number"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="party_name">Party Name</Label>
                 <Input
@@ -355,9 +367,9 @@ const AddPlantData = () => {
                       placeholder="Enter rate"
                       className="flex-1"
                     />
-                    <Button 
-                      type="button" 
-                      onClick={calculateRate} 
+                    <Button
+                      type="button"
+                      onClick={calculateRate}
                       variant="outline"
                       className="flex items-center gap-1"
                     >
@@ -399,16 +411,16 @@ const AddPlantData = () => {
                               const newValue = parseFloat(e.target.value);
                               if (!isNaN(newValue)) {
                                 setFormulaVariables(prev =>
-                                  prev.map(v => v.id === variable.id ? {...v, value: newValue} : v)
+                                  prev.map(v => v.name === variable.name ? { ...v, value: newValue } : v)
                                 );
                               }
                             }}
                             className="flex-1"
                           />
-                          <Button 
+                          <Button
                             type="button"
                             size="sm"
-                            onClick={() => handleUpdateFormulaVariable(variable.id, variable.value)}
+                            onClick={() => handleUpdateFormulaVariable(variable.name, variable.value)}
                           >
                             Save
                           </Button>
@@ -423,7 +435,7 @@ const AddPlantData = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Input Variables</CardTitle>
@@ -442,7 +454,7 @@ const AddPlantData = () => {
                   placeholder="Enter MV"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="oil">Oil</Label>
                 <Input
@@ -455,7 +467,7 @@ const AddPlantData = () => {
                   placeholder="Enter oil"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="fiber">Fiber</Label>
                 <Input
@@ -468,7 +480,7 @@ const AddPlantData = () => {
                   placeholder="Enter fiber"
                 />
               </div>
-              
+
               <div className="flex flex-col gap-2">
                 <Label htmlFor="starch">Starch</Label>
                 <Input
@@ -484,11 +496,11 @@ const AddPlantData = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <div className="flex justify-end">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => navigate('/plant-data')}
             className="mr-2"
           >

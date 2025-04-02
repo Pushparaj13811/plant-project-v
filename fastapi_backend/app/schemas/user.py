@@ -102,8 +102,19 @@ class RoleInDB(Role):
     updated_at: datetime
 
 
+# Plant schema for response
+class PlantResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class User(UserBase):
     id: int
+    role: Role
+    plant: Optional[PlantResponse] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -134,3 +145,35 @@ class PasswordReset(BaseModel):
 class PasswordChange(BaseModel):
     old_password: str
     new_password: str
+
+
+# Dashboard schemas
+class DashboardStats(BaseModel):
+    totalUsers: int
+    activeUsers: int
+    totalPlants: int
+    userGrowth: float
+
+class DashboardActivity(BaseModel):
+    id: str
+    type: str
+    title: str
+    description: str
+    timestamp: str
+
+class ChartDataset(BaseModel):
+    label: str
+    data: List[int]
+    borderColor: str
+    backgroundColor: str
+
+class ChartData(BaseModel):
+    labels: List[str]
+    datasets: List[ChartDataset]
+
+class DashboardResponse(BaseModel):
+    stats: DashboardStats
+    activities: List[DashboardActivity]
+    chartData: ChartData
+
+    model_config = ConfigDict(from_attributes=True)

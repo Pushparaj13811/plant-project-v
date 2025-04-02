@@ -2,7 +2,7 @@ from typing import Annotated, Generator, Optional
 import time
 from datetime import datetime, timedelta
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
@@ -12,7 +12,7 @@ from passlib.context import CryptContext
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import verify_password
-from app.models.user import User
+from app.models.user import User, RoleCategoryEnum
 from app.crud.user import user
 from app.schemas.token import TokenPayload, TokenData
 
@@ -40,32 +40,66 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 async def get_current_user(
+    request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
     db: Session = Depends(get_db)
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
+        print(f"Decoding token: {token[:10]}...")  # Debug log
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        print(f"Token payload: {payload}")  # Debug log
         email: str = payload.get("sub")
         if email is None:
-            raise credentials_exception
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials - missing email",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         token_data = TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
+    except JWTError as e:
+        print(f"JWT Error: {str(e)}")  # Debug log
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate credentials - {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     user = db.query(User).filter(User.email == token_data.email).first()
     if user is None:
-        raise credentials_exception
+        print(f"User not found for email: {email}")  # Debug log
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    print(f"Found user: {user.email} (is_superuser: {user.is_superuser}, is_active: {user.is_active})")  # Debug log
+    
+    # Update last activity
+    user.last_login_at = datetime.utcnow()
+    db.commit()
+    
     return user
 
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)]
 ) -> User:
+    print(f"Checking if user is active: {current_user.email}")  # Debug log
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user account"
+        )
+    
+    # Check if user has required role
+    if not current_user.role:
+        print(f"User {current_user.email} has no role assigned")  # Debug log
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User has no role assigned"
+        )
+    
+    print(f"User {current_user.email} is active with role: {current_user.role.category}")  # Debug log
     return current_user
 
 def get_current_superuser(
@@ -74,22 +108,25 @@ def get_current_superuser(
     """
     Get current user only if superuser
     """
+    print(f"Checking if user is superuser: {current_user.email} (is_superuser: {current_user.is_superuser})")  # Debug log
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="The user doesn't have enough privileges",
+            detail="The user doesn't have enough privileges - superuser required",
         )
     return current_user
 
 def get_current_admin_user(
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ) -> User:
     """
     Get current user and check if user is admin or higher
     """
-    if current_user.role.category not in [RoleCategoryEnum.ADMIN, RoleCategoryEnum.SUPERADMIN]:
+    print(f"Checking if user is admin: {current_user.email} (role: {current_user.role.category if current_user.role else None})")  # Debug log
+    if not current_user.role or current_user.role.category not in [RoleCategoryEnum.ADMIN, RoleCategoryEnum.SUPER_ADMIN]:
         raise HTTPException(
-            status_code=403, detail="The user doesn't have enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges - admin or higher required"
         )
     return current_user
 

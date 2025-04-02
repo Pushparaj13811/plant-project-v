@@ -18,6 +18,7 @@ from app.schemas.token import TokenPayload
 from app.models.user import RoleCategoryEnum
 from app.api.dependencies.auth import get_current_active_user
 from app.core.email import send_password_reset_email
+from app.schemas.auth import LoginResponse
 
 router = APIRouter()
 
@@ -26,7 +27,7 @@ async def auth_login_options():
     """Handle OPTIONS request for CORS preflight"""
     return Response(status_code=200)
 
-@router.post("/login/", response_model=Token)
+@router.post("/login/", response_model=LoginResponse)
 def login_access_token(
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
@@ -59,15 +60,14 @@ def login_access_token(
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     
-    return {
-        "access_token": create_access_token(
-            authenticated_user.email, expires_delta=access_token_expires
-        ),
-        "refresh_token": create_refresh_token(
-            authenticated_user.email, expires_delta=refresh_token_expires
-        ),
-        "token_type": "bearer",
-    }
+    access_token = create_access_token(
+        authenticated_user.email, expires_delta=access_token_expires
+    )
+    refresh_token = create_refresh_token(
+        authenticated_user.email, expires_delta=refresh_token_expires
+    )
+    
+    return LoginResponse.from_user(authenticated_user, access_token, refresh_token)
 
 @router.options("/refresh/", include_in_schema=False)
 async def auth_refresh_options():

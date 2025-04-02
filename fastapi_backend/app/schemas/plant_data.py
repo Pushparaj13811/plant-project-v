@@ -31,6 +31,9 @@ class PlantRecordBase(BaseModel):
     fiber: Decimal
     starch: Decimal
     maize_rate: Decimal
+    
+    # Additional notes or metadata
+    notes: Optional[str] = None
 
 # Create schemas (used for creating new objects)
 class FormulaVariableCreate(FormulaVariableBase):
@@ -136,4 +139,10 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     message: str
-    data: Optional[Dict[str, Any]] = None 
+    data: Optional[Dict[str, Any]] = None
+
+class PlantRecordPagination(BaseModel):
+    results: List[PlantRecordInDB]
+    count: int
+    next: bool
+    previous: bool 

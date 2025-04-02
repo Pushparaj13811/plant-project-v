@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from typing import Any, List, Optional
+from sqlalchemy import func
+from typing import Any, List, Optional, Dict
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.crud import user, role, user_activity
@@ -8,11 +10,13 @@ from app.schemas import (
     User, UserCreate, UserUpdate, UserInDB, 
     Role, RoleCreate, RoleUpdate, RoleInDB,
     UserActivity, UserActivityCreate, ActionTypeEnum,
-    PasswordChange
+    PasswordChange, DashboardResponse, DashboardStats,
+    DashboardActivity, ChartData, ChartDataset
 )
 from app.api.dependencies.auth import get_current_active_user, get_current_superuser
-from app.models.user import User as UserModel
+from app.models.user import User as UserModel, UserActivity as UserActivityModel
 from app.core.security import verify_password, get_password_hash
+from app.models.plant import Plant
 
 router = APIRouter()
 # Create a separate router for roles to be used in the /management/roles endpoint
@@ -174,20 +178,21 @@ def read_user(
     user_id: int,
 ) -> Any:
     """
-    Get user by ID.
+    Get user by ID. Superusers can access any user, regular users can only access themselves.
     """
-    # Regular users can only see themselves
-    if not current_user.is_superuser and current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
-        )
-    
+    # Get the requested user
     db_user = user.get(db, id=user_id)
     if not db_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
+        )
+    
+    # Regular users can only see themselves
+    if not current_user.is_superuser and current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
         )
     
     return db_user
@@ -472,4 +477,143 @@ def read_user_activities_me(
     activities = user_activity.get_multi_by_user(
         db, user_id=current_user.id, skip=skip, limit=limit
     )
-    return activities 
+    return activities
+
+@router.get("/dashboard_stats/", response_model=DashboardResponse)
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_active_user)
+) -> Any:
+    """Get dashboard statistics based on user role."""
+    try:
+        # Ensure user has permission to access dashboard
+        if not current_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Inactive user cannot access dashboard"
+            )
+
+        # Calculate the date 30 days ago
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # Get base statistics
+        total_users = db.query(UserModel).count()
+        active_users = db.query(UserModel).filter(UserModel.last_login_at >= thirty_days_ago).count()
+        total_plants = db.query(Plant).count()
+
+        # Calculate user growth (users created in last 30 days)
+        new_users = db.query(UserModel).filter(UserModel.created_at >= thirty_days_ago).count()
+        user_growth = (new_users / total_users * 100) if total_users > 0 else 0
+
+        # Get recent activities with better error handling
+        recent_activities = []
+        try:
+            # Get user activities (creations, updates, and deletions)
+            user_activities = db.query(UserActivityModel).join(
+                UserActivityModel.user
+            ).order_by(
+                UserActivityModel.created_at.desc()
+            ).limit(10).all()
+
+            for activity in user_activities:
+                try:
+                    activity_type = 'user'
+                    performed_by = f"{activity.user.first_name} {activity.user.last_name}" if activity.user else 'Unknown'
+
+                    if activity.action_type == ActionTypeEnum.DATA_CREATION:
+                        if "created role:" in activity.description:
+                            title = 'New Role Created'
+                            description = activity.description
+                            icon_type = 'role'
+                        else:
+                            title = 'New User Created'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name} was created by {performed_by}" if activity.target_user else f"User was created by {performed_by}"
+                            icon_type = 'user'
+                    elif activity.action_type == ActionTypeEnum.DATA_DELETION:
+                        title = 'User Deleted'
+                        description = f"User was deleted by {performed_by}"
+                        icon_type = 'user'
+                    elif activity.action_type == ActionTypeEnum.DATA_UPDATE:
+                        if "promoted" in activity.description.lower():
+                            title = 'User Promoted'
+                            icon_type = 'promotion'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name}: {activity.description} by {performed_by}" if activity.target_user else f"{activity.description} by {performed_by}"
+                        elif "demoted" in activity.description.lower():
+                            title = 'User Demoted'
+                            icon_type = 'demotion'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name}: {activity.description} by {performed_by}" if activity.target_user else f"{activity.description} by {performed_by}"
+                        elif "role changed" in activity.description.lower():
+                            title = 'Role Changed'
+                            icon_type = 'update'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name}: {activity.description} by {performed_by}" if activity.target_user else f"{activity.description} by {performed_by}"
+                        elif "plant" in activity.description.lower():
+                            title = 'Plant Assignment Changed'
+                            icon_type = 'plant'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name}: {activity.description} by {performed_by}" if activity.target_user else f"{activity.description} by {performed_by}"
+                        else:
+                            title = 'User Updated'
+                            icon_type = 'update'
+                            description = f"{activity.target_user.first_name} {activity.target_user.last_name}: {activity.description} by {performed_by}" if activity.target_user else f"{activity.description} by {performed_by}"
+                    else:
+                        title = 'User Activity'
+                        description = activity.description
+                        icon_type = 'user'
+
+                    recent_activities.append({
+                        'id': f"activity_{activity.id}",
+                        'type': icon_type,
+                        'title': title,
+                        'description': description,
+                        'timestamp': activity.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    })
+                except Exception as activity_error:
+                    print(f"Error processing activity {activity.id}: {str(activity_error)}")
+                    continue
+
+        except Exception as activities_error:
+            print(f"Error fetching activities: {str(activities_error)}")
+            recent_activities = []
+
+        # Get monthly user activity data for chart
+        monthly_data = []
+        for i in range(6):
+            month_start = datetime.utcnow() - timedelta(days=30 * (5-i))
+            month_end = datetime.utcnow() - timedelta(days=30 * (4-i)) if i < 5 else datetime.utcnow()
+            
+            active_count = db.query(UserModel).filter(
+                UserModel.last_login_at >= month_start,
+                UserModel.last_login_at < month_end
+            ).count()
+            
+            monthly_data.append(active_count)
+
+        response_data = {
+            'stats': {
+                'totalUsers': total_users,
+                'activeUsers': active_users,
+                'totalPlants': total_plants,
+                'userGrowth': round(user_growth, 1)
+            },
+            'activities': recent_activities,
+            'chartData': {
+                'labels': [
+                    (datetime.utcnow() - timedelta(days=30*i)).strftime('%b')
+                    for i in range(5, -1, -1)
+                ],
+                'datasets': [{
+                    'label': 'User Activity',
+                    'data': monthly_data,
+                    'borderColor': 'rgb(59, 130, 246)',
+                    'backgroundColor': 'rgba(59, 130, 246, 0.5)'
+                }]
+            }
+        }
+
+        return response_data
+            
+    except Exception as e:
+        print(f"Error in dashboard_stats: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) 

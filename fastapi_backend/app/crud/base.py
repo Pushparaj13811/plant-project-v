@@ -2,7 +2,7 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import Base
 
@@ -22,12 +22,25 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self.model = model
 
     def get(self, db: Session, id: Any) -> Optional[ModelType]:
+        # For User model, include role and plant relationships
+        if self.model.__name__ == 'User':
+            return db.query(self.model).options(
+                joinedload(self.model.role),
+                joinedload(self.model.plant)
+            ).filter(self.model.id == id).first()
         return db.query(self.model).filter(self.model.id == id).first()
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100, **kwargs
     ) -> List[ModelType]:
         query = db.query(self.model)
+        
+        # For User model, include role and plant relationships
+        if self.model.__name__ == 'User':
+            query = query.options(
+                joinedload(self.model.role),
+                joinedload(self.model.plant)
+            )
         
         # Apply any additional filters passed as kwargs
         for attr, value in kwargs.items():

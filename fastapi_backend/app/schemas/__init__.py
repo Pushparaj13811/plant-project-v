@@ -14,6 +14,10 @@ from app.schemas.formula_variable import (
     FormulaVariableBase, FormulaVariableCreate, 
     FormulaVariableUpdate, FormulaVariableInDB
 )
+from app.schemas.dashboard import (
+    DashboardResponse, DashboardStats, DashboardActivity,
+    ChartDataset, ChartData
+)
 
 from app.schemas.plant_data import (
     FormulaVariableBase, PlantRecordBase,
@@ -21,5 +25,6 @@ from app.schemas.plant_data import (
     FormulaVariableUpdate, PlantRecordUpdate,
     FormulaVariableInDB, PlantRecordInDB, PlantRecordWithPlant,
     PlantRecordDateRange, PlantRecordAverages, PlantRecordStatistics,
-    ColumnInfo, ColumnCategories, ChatRequest, ChatResponse
+    ColumnInfo, ColumnCategories, ChatRequest, ChatResponse,
+    PlantRecordPagination
 ) 

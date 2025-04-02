@@ -65,12 +65,12 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="plant-data/settings" element={
-              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                 <PlantDataSettings />
               </ProtectedRoute>
             } />
             <Route path="plant-data/visualization" element={
-              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN,]}>
                 <PlantDataVisualization />
               </ProtectedRoute>
             } />
@@ -87,7 +87,7 @@ function App() {
             <Route
               path="/users/add"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <AddUser />
                 </ProtectedRoute>
               }
@@ -95,7 +95,7 @@ function App() {
             <Route
               path="/users/edit/:id"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <EditUser />
                 </ProtectedRoute>
               }
@@ -139,7 +139,7 @@ function App() {
             <Route
               path="/plants/add"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <AddPlant />
                 </ProtectedRoute>
               }
@@ -147,7 +147,7 @@ function App() {
             <Route
               path="/plants/edit/:id"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <EditPlant />
                 </ProtectedRoute>
               }
