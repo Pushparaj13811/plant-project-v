@@ -56,6 +56,8 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     is_staff = Column(Boolean, default=False)
     has_changed_password = Column(Boolean, default=False)
+    reset_token = Column(String, nullable=True)
+    force_password_change = Column(Boolean, default=True)
     
     # Foreign keys
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)

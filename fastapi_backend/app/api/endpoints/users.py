@@ -13,7 +13,7 @@ from app.schemas import (
     PasswordChange, DashboardResponse, DashboardStats,
     DashboardActivity, ChartData, ChartDataset
 )
-from app.api.dependencies.auth import get_current_active_user, get_current_superuser
+from app.api.dependencies.auth import get_current_active_user, get_current_superuser, PlantAdminPermission
 from app.models.user import User as UserModel, UserActivity as UserActivityModel
 from app.core.security import verify_password, get_password_hash
 from app.models.plant import Plant
@@ -25,59 +25,51 @@ role_router = APIRouter()
 # User endpoints
 @router.get("/", response_model=List[User])
 def read_users(
-    *,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_superuser),
+    current_user: UserModel = Depends(get_current_active_user),
     skip: int = 0,
     limit: int = 100,
-) -> Any:
+):
     """
-    Retrieve users. Only superusers can access this endpoint.
+    Retrieve users.
     """
-    users = user.get_multi(db, skip=skip, limit=limit)
+    if current_user.role.name == "SUPERADMIN":
+        users = user.get_multi(db, skip=skip, limit=limit)
+    else:
+        # Plant admins can only see users from their plant
+        users = user.get_multi_by_plant(
+            db, plant_id=current_user.plant_id, skip=skip, limit=limit
+        )
     return users
 
 @router.post("/", response_model=User)
 def create_user(
     *,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_superuser),
     user_in: UserCreate,
+    current_user: UserModel = Depends(get_current_active_user),
 ) -> Any:
     """
-    Create new user. Only superusers can create users.
+    Create new user.
     """
-    # Check if user with this email already exists
-    db_user = user.get_by_email(db, email=user_in.email)
-    if db_user:
+    # Check if user exists
+    user = user.get_by_email(db, email=user_in.email)
+    if user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
+            status_code=400,
+            detail="The user with this email already exists in the system.",
         )
     
-    # Check if role exists
-    db_role = role.get(db, id=user_in.role_id)
-    if not db_role:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Role with id {user_in.role_id} does not exist",
-        )
+    # Check permissions
+    if current_user.role.name != "SUPERADMIN":
+        if current_user.plant_id != user_in.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions to create user for this plant"
+            )
     
-    # Create user
-    new_user = user.create(db, obj_in=user_in)
-    
-    # Log activity
-    user_activity.create(
-        db,
-        obj_in=UserActivityCreate(
-            user_id=current_user.id,
-            target_user_id=new_user.id,
-            action_type=ActionTypeEnum.DATA_CREATION,
-            description=f"Created user {new_user.email}",
-        )
-    )
-    
-    return new_user
+    user = user.create(db, obj_in=user_in)
+    return user
 
 @router.get("/me", response_model=User)
 def read_user_me(
@@ -174,79 +166,57 @@ def change_password(
 def read_user(
     *,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_active_user),
     user_id: int,
+    current_user: UserModel = Depends(get_current_active_user),
 ) -> Any:
     """
-    Get user by ID. Superusers can access any user, regular users can only access themselves.
+    Get user by ID.
     """
-    # Get the requested user
-    db_user = user.get(db, id=user_id)
-    if not db_user:
+    user = user.get(db, id=user_id)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=404,
+            detail="The user with this id does not exist in the system",
         )
     
-    # Regular users can only see themselves
-    if not current_user.is_superuser and current_user.id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
-        )
+    # Check if current user has permission to view this user
+    if current_user.role.name != "SUPERADMIN":
+        if current_user.plant_id != user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions to view this user"
+            )
     
-    return db_user
+    return user
 
 @router.put("/{user_id}", response_model=User)
 def update_user(
     *,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_superuser),
     user_id: int,
     user_in: UserUpdate,
+    current_user: UserModel = Depends(get_current_active_user),
 ) -> Any:
     """
-    Update user. Only superusers can update other users.
+    Update a user.
     """
-    db_user = user.get(db, id=user_id)
-    if not db_user:
+    user = user.get(db, id=user_id)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=404,
+            detail="The user with this id does not exist in the system",
         )
     
-    # If user is updating email, check if it's already in use
-    if user_in.email and user_in.email != db_user.email:
-        existing_user = user.get_by_email(db, email=user_in.email)
-        if existing_user and existing_user.id != user_id:
+    # Check if current user has permission to update this user
+    if current_user.role.name != "SUPERADMIN":
+        if current_user.plant_id != user.plant_id:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions to update this user"
             )
     
-    # If user is updating role, check if it exists
-    if user_in.role_id:
-        db_role = role.get(db, id=user_in.role_id)
-        if not db_role:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Role with id {user_in.role_id} does not exist",
-            )
-    
-    updated_user = user.update(db, db_obj=db_user, obj_in=user_in)
-    
-    # Log activity
-    user_activity.create(
-        db,
-        obj_in=UserActivityCreate(
-            user_id=current_user.id,
-            target_user_id=user_id,
-            action_type=ActionTypeEnum.DATA_UPDATE,
-            description=f"Updated user {updated_user.email}",
-        )
-    )
-    
-    return updated_user
+    user = user.update(db, db_obj=user, obj_in=user_in)
+    return user
 
 @router.delete("/{user_id}", response_model=User)
 def delete_user(

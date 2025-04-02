@@ -139,4 +139,32 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     if not verify_password(password, user.hashed_password):
         return None
-    return user 
+    return user
+
+class PlantAdminPermission:
+    def __init__(self, plant_id: Optional[int] = None):
+        self.plant_id = plant_id
+
+    async def __call__(
+        self,
+        current_user: User = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        # Superadmins can do anything
+        if current_user.role.name == RoleCategoryEnum.SUPERADMIN:
+            return current_user
+
+        # Admins must belong to the plant they're managing
+        if current_user.role.name != RoleCategoryEnum.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
+
+        if self.plant_id and current_user.plant_id != self.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions for this plant"
+            )
+
+        return current_user 

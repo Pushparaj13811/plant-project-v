@@ -23,6 +23,8 @@ import PlantDataVisualization from './pages/plant-data/PlantDataVisualization'
 import AddPlantData from './pages/plant-data/AddPlantData'
 import PlantData from './pages/plant-data/PlantData'
 import PlantDataSettings from '@/pages/plant-data/PlantDataSettings'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 
 function App() {
   return (
@@ -33,6 +35,8 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Loginpage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
 
           {/* Protected Routes */}

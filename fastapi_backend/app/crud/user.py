@@ -15,6 +15,20 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
         return db.query(User).filter(User.email == email).first()
 
+    def get_by_reset_token(self, db: Session, *, token: str) -> Optional[User]:
+        return db.query(User).filter(User.reset_token == token).first()
+
+    def get_multi_by_plant(
+        self, db: Session, *, plant_id: int, skip: int = 0, limit: int = 100
+    ) -> List[User]:
+        return (
+            db.query(User)
+            .filter(User.plant_id == plant_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
     def create(self, db: Session, *, obj_in: UserCreate) -> User:
         db_obj = User(
             email=obj_in.email,

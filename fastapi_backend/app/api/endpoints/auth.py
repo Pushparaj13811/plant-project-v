@@ -188,9 +188,10 @@ def reset_password(
     token = secrets.token_urlsafe(32)
     
     if user:
-        # Store reset token and expiry in user model
-        # This would be implemented in a real app with a proper token storage mechanism
-        # Here we just generate and send the token, but don't store it
+        # Store reset token in user model
+        user.reset_token = token
+        db.add(user)
+        db.commit()
         
         # Send reset email
         send_password_reset_email(request_data.email, token)
@@ -216,6 +217,19 @@ def confirm_reset_password(
     """
     Confirm password reset with token and set new password
     """
-    # In a real app, you would validate the token and get the associated user
-    # Here we just return a message
-    return {"message": "This endpoint would reset the password in a real app"} 
+    # Get user by reset token
+    user = user_crud.get_by_reset_token(db, token=data.token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+    
+    # Update password
+    user.hashed_password = get_password_hash(data.new_password)
+    user.reset_token = None  # Clear the reset token
+    user.force_password_change = False  # User has changed their password
+    db.add(user)
+    db.commit()
+    
+    return {"message": "Password has been reset successfully"} 
