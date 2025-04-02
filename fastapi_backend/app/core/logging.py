@@ -30,7 +30,7 @@ DEFAULT_LOGGING_CONFIG = {
             "class": "logging.StreamHandler",
             "stream": sys.stdout,
             "formatter": "default",
-            "level": LOG_LEVELS.get(os.getenv("LOG_LEVEL", "info").lower(), logging.INFO),
+            "level": LOG_LEVELS.get(settings.LOG_LEVEL.lower(), logging.INFO),
         },
         "error_console": {
             "class": "logging.StreamHandler",
@@ -42,23 +42,23 @@ DEFAULT_LOGGING_CONFIG = {
     "loggers": {
         "app": {
             "handlers": ["console", "error_console"],
-            "level": LOG_LEVELS.get(os.getenv("LOG_LEVEL", "info").lower(), logging.INFO),
+            "level": LOG_LEVELS.get(settings.LOG_LEVEL.lower(), logging.INFO),
             "propagate": False,
         },
         "uvicorn": {
             "handlers": ["console", "error_console"],
-            "level": LOG_LEVELS.get(os.getenv("LOG_LEVEL", "info").lower(), logging.INFO),
+            "level": LOG_LEVELS.get(settings.LOG_LEVEL.lower(), logging.INFO),
             "propagate": False,
         },
         "sqlalchemy.engine": {
             "handlers": ["console", "error_console"],
-            "level": LOG_LEVELS.get(os.getenv("SQL_LOG_LEVEL", "warning").lower(), logging.WARNING),
+            "level": LOG_LEVELS.get(settings.SQL_LOG_LEVEL.lower(), logging.WARNING),
             "propagate": False,
         },
     },
     "root": {
         "handlers": ["console", "error_console"],
-        "level": LOG_LEVELS.get(os.getenv("LOG_LEVEL", "info").lower(), logging.INFO),
+        "level": LOG_LEVELS.get(settings.LOG_LEVEL.lower(), logging.INFO),
     },
 }
 
@@ -71,7 +71,7 @@ def setup_logging() -> None:
     
     # Add file handler if in production
     if settings.ENVIRONMENT != "development":
-        log_directory = os.getenv("LOG_DIR", "logs")
+        log_directory = settings.LOG_DIR
         os.makedirs(log_directory, exist_ok=True)
         
         # Add file handlers to config
@@ -81,7 +81,7 @@ def setup_logging() -> None:
             "maxBytes": 10485760,  # 10MB
             "backupCount": 5,
             "formatter": "default",
-            "level": LOG_LEVELS.get(os.getenv("LOG_LEVEL", "info").lower(), logging.INFO),
+            "level": LOG_LEVELS.get(settings.LOG_LEVEL.lower(), logging.INFO),
         }
         log_config["handlers"]["error_file"] = {
             "class": "logging.handlers.RotatingFileHandler",

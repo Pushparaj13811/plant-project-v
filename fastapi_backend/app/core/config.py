@@ -48,7 +48,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     
     # Frontend URL for links in emails
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    
+    # Logging settings
+    LOG_LEVEL: str = "info"  # debug, info, warning, error, critical
+    SQL_LOG_LEVEL: str = "warning"  # debug, info, warning, error, critical
+    LOG_DIR: str = "logs"  # Directory for log files
     
     @field_validator("BACKEND_CORS_ORIGINS")
     def validate_cors_origins(cls, v: str) -> List[str]:
@@ -84,4 +89,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()  # type: ignore 
+settings = Settings() 

@@ -1,6 +1,6 @@
 import os
-from typing import Any, Dict, Optional
-from datetime import date
+from typing import Any, Dict, Optional, List
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -10,92 +10,111 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.crud import plant_record
 from app.api.dependencies.auth import get_current_active_user
-from app.models.user import User
+from app.models.user import User, RoleCategoryEnum
 from app.core.config import settings
+from groq import Groq
+from dotenv import load_dotenv
+from app.schemas.chat import ChatRequest, ChatResponse
+import logging
+import httpx
 
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
+load_dotenv()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-class ChatRequest(BaseModel):
-    message: str
-    plant_id: Optional[int] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
+class Chat:
+    def __init__(self, client: 'CustomGroqClient'):
+        self.client = client
+        self.completions = Completions(client)
 
-class ChatResponse(BaseModel):
-    message: str
-    data: Optional[Dict] = None
+class Completions:
+    def __init__(self, client: 'CustomGroqClient'):
+        self.client = client
+
+    def create(self, messages: List[Dict[str, str]], model: str, temperature: float, max_tokens: int) -> Any:
+        response = self.client._client.post(
+            "/openai/v1/chat/completions",
+            json={
+                "messages": messages,
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+        )
+        response.raise_for_status()
+        return response.json()
+
+class CustomGroqClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self._client = httpx.Client(
+            base_url="https://api.groq.com",
+            headers={"Authorization": f"Bearer {api_key}"}
+        )
+        self.chat = Chat(self)
 
 @router.post("/", response_model=ChatResponse)
 async def chat(
-    *,
+    request: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-    chat_request: ChatRequest,
-) -> Any:
+):
     """
-    Handle chat requests using Groq API
+    Chat endpoint that uses Groq API to generate responses based on plant data.
     """
-    if not GROQ_AVAILABLE:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Groq API is not available. Please install the Groq client with 'pip install groq'."
-        )
-    
-    # Check for API key in settings
-    if not settings.GROQ_API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GROQ_API_KEY environment variable is not set."
-        )
-
-    # Create Groq client
-    client = Groq(api_key=settings.GROQ_API_KEY)
-    
-    # Filter records based on request parameters
-    records = plant_record.get_filtered(
-        db,
-        plant_id=chat_request.plant_id,
-        start_date=chat_request.start_date,
-        end_date=chat_request.end_date,
-        skip=0,
-        limit=50  # Limit to 50 records like in Django
-    )
-    
-    # Get count of filtered records
-    count = plant_record.get_count(
-        db,
-        plant_id=chat_request.plant_id,
-        start_date=chat_request.start_date,
-        end_date=chat_request.end_date
-    )
-    
-    # Prepare context
-    context = prepare_context(records, count)
-    
-    # Create system message with context
-    system_message = {
-        "role": "system",
-        "content": f"""You are a helpful assistant for a plant data management system. 
-        You have access to the following data context:
-        {context}
-        
-        Please provide accurate and helpful responses based on this data. 
-        If the data is not sufficient to answer the query, please say so."""
-    }
-    
-    # Prepare messages for Groq
-    groq_messages = [
-        system_message,
-        {"role": "user", "content": chat_request.message}
-    ]
-    
     try:
+        # Log user info for debugging
+        logger.debug(f"Current user: {current_user.email}, Role: {current_user.role.category}, Plant ID: {current_user.plant_id}")
+        
+        # Check if user has access to the requested plant
+        if current_user.role.category == RoleCategoryEnum.USER and request.plant_id != current_user.plant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this plant's data"
+            )
+        
+        # Get filtered records
+        records = plant_record.get_filtered(
+            db,
+            plant_id=request.plant_id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            limit=50  # Limit to 50 records to avoid context length issues
+        )
+        
+        # Prepare context from records
+        context = prepare_context(records)
+        
+        # Initialize Groq client with custom implementation
+        try:
+            client = CustomGroqClient(api_key=settings.GROQ_API_KEY)
+        except Exception as e:
+            logger.error(f"Failed to initialize Groq client: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to initialize AI service"
+            )
+        
+        # Create system message with context
+        system_message = {
+            "role": "system",
+            "content": f"""You are a helpful assistant for a plant data management system. 
+            You have access to the following data context:
+            {context}
+            
+            Please provide accurate and helpful responses based on this data. 
+            If the data is not sufficient to answer the query, please say so."""
+        }
+        
+        # Prepare messages for Groq
+        groq_messages = [
+            system_message,
+            {"role": "user", "content": request.message}
+        ]
+        
         # Call Groq API
         chat_completion = client.chat.completions.create(
             messages=groq_messages,
@@ -104,40 +123,45 @@ async def chat(
             max_tokens=1000
         )
         
-        response_message = chat_completion.choices[0].message.content
+        response_message = chat_completion["choices"][0]["message"]["content"]
         
         return ChatResponse(
             message=response_message,
             data=None
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate response: {str(e)}"
+            detail="An error occurred while processing your request"
         )
 
-def prepare_context(records, count):
-    """Prepare context from the records for the AI"""
-    if count == 0:
+def prepare_context(records: List) -> str:
+    """Prepare context from plant records for the AI"""
+    if not records:
         return "No data available for the specified criteria."
     
-    # Format the basic statistics
-    if records:
-        min_date = min(record.date for record in records)
-        max_date = max(record.date for record in records)
-    else:
-        min_date = "N/A"
-        max_date = "N/A"
+    # Calculate basic statistics
+    stats = {
+        'total_records': len(records),
+        'date_range': {
+            'min': min(record.date for record in records),
+            'max': max(record.date for record in records),
+        },
+    }
     
+    # Format the basic statistics
     context = f"""
-    Total Records: {count}
-    Date Range: {min_date} to {max_date}
+    Total Records: {stats['total_records']}
+    Date Range: {stats['date_range']['min']} to {stats['date_range']['max']}
     
     Individual Records:
     """
     
-    # Add records data
+    # Add all records data
     for i, record in enumerate(records, 1):
         context += f"""
     Record {i}:
@@ -162,8 +186,5 @@ def prepare_context(records, count):
     - Grain: {record.grain}
     - DOC: {record.doc}
     """
-    
-    if count > 50:
-        context += f"\n(Showing 50 of {count} total records)"
     
     return context 
