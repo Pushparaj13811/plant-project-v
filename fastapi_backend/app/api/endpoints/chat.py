@@ -111,34 +111,16 @@ async def chat(
             [Provide a brief 2-3 sentence summary of your analysis]
 
             ## 🔍 Key Findings
-            - [List 3-5 key findings as bullet points]
+            - [List 2-4 key findings as bullet points]
             - [Use sub-bullets for detailed points]
             - [Include relevant metrics and numbers]
 
             ## 📈 Data Insights
             ### Production Metrics
-            | Metric | Value | Trend |
-            |--------|-------|--------|
-            | [Metric 1] | [Value] | [Trend] |
-            | [Metric 2] | [Value] | [Trend] |
+            [Provide a brief analysis of production metrics, values and trends in a bullet point format]
 
-            ### Quality Metrics
-            | Metric | Value | Target |
-            |--------|-------|--------|
-            | [Metric 1] | [Value] | [Target] |
-            | [Metric 2] | [Value] | [Target] |
-
-            ## 💡 Recommendations
-            1. [Priority 1 recommendation]
-            2. [Priority 2 recommendation]
-            3. [Priority 3 recommendation]
-
-            ## ⚠️ Important Notes
-            > [Any critical warnings or important context]
-
-            ## 📝 Additional Context
-            - [Supporting information]
-            - [Technical details if relevant]
+            ## Final Answer
+            [Provide a final answer to the user's query]
 
             Formatting Guidelines:
             1. Use emojis for section headers (📊, 🔍, 📈, 💡, ⚠️, 📝)

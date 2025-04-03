@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 interface UserWithPlant extends User {
   plant?: Plant;
+  role_details: Role;
 }
 
 const UserList = () => {
@@ -86,7 +87,7 @@ const UserList = () => {
       user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesRole = roleFilter === 'all' || user.role?.id.toString() === roleFilter;
+    const matchesRole = roleFilter === 'all' || user.role_details.id.toString() === roleFilter;
     const matchesPlant = plantFilter === 'all' || user.plant?.id.toString() === plantFilter;
     return matchesSearch && matchesRole && matchesPlant;
   });
@@ -189,12 +190,12 @@ const UserList = () => {
                       <span className={cn(
                         "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
                         {
-                          'bg-purple-100 text-purple-800': user.role?.category === RoleCategory.SUPERADMIN,
-                          'bg-blue-100 text-blue-800': user.role?.category === RoleCategory.ADMIN,
-                          'bg-green-100 text-green-800': user.role?.category === RoleCategory.USER
+                          'bg-purple-100 text-purple-800': user.role_details.category === RoleCategory.SUPERADMIN,
+                          'bg-blue-100 text-blue-800': user.role_details.category === RoleCategory.ADMIN,
+                          'bg-green-100 text-green-800': user.role_details.category === RoleCategory.USER
                         }
                       )}>
-                        {user.role?.name || '-'}
+                        {user.role_details.name || '-'}
                       </span>
                     </TableCell>
                     <TableCell>{user.plant?.name || '-'}</TableCell>
