@@ -4,52 +4,18 @@ import datetime
 import random
 from decimal import Decimal
 from pathlib import Path
-import getpass
 
 # Add the parent directory to sys.path
 sys.path.append(str(Path(__file__).parent))
 
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal, engine, Base
-from app.core.config import settings
+from app.core.database import SessionLocal
 from app.models.plant import Plant
 from app.models.plant_data import PlantRecord, FormulaVariable
-from app.crud.plant_data import formula_variable
 from app.core.logging import setup_logging
 
 # Setup logging
 setup_logging()
-
-def create_sample_formula_variables(db: Session):
-    """Create default formula variables if they don't exist."""
-    # Check if variables already exist
-    variables = formula_variable.get_multi(db)
-    if variables:
-        print("Formula variables already exist, skipping creation")
-        return
-    
-    # Default variables
-    default_variables = [
-        {"name": "dm_factor", "value": Decimal("100"), "default_value": Decimal("100"), 
-         "description": "DM calculation factor"},
-        {"name": "oil_factor", "value": Decimal("2.5"), "default_value": Decimal("2.5"), 
-         "description": "Oil value calculation factor"},
-        {"name": "net_wo_factor", "value": Decimal("1.5"), "default_value": Decimal("1.5"), 
-         "description": "Net without oil and fiber calculation factor"},
-        {"name": "starch_per_point_factor", "value": Decimal("100"), "default_value": Decimal("100"), 
-         "description": "Starch per point calculation factor"},
-        {"name": "grain_factor", "value": Decimal("1.2"), "default_value": Decimal("1.2"), 
-         "description": "Grain calculation factor"},
-        {"name": "doc_factor", "value": Decimal("1.05"), "default_value": Decimal("1.05"), 
-         "description": "DOC calculation factor"},
-    ]
-    
-    for var_data in default_variables:
-        db_var = FormulaVariable(**var_data)
-        db.add(db_var)
-    
-    db.commit()
-    print("Created default formula variables")
 
 def create_sample_records(db: Session):
     """Create sample plant records."""
@@ -58,11 +24,15 @@ def create_sample_records(db: Session):
     if not plants:
         print("No plants found in database. Please run create_plants.py first.")
         return False
+        
+    # Get formula variables for calculation
+    variables = {
+        var.name: float(var.value) 
+        for var in db.query(FormulaVariable).all()
+    }
     
-    # Ask for confirmation before creating records
-    response = input("This will create sample records for all plants. Continue? (y/n): ")
-    if response.lower() != 'y':
-        print("Operation cancelled.")
+    if not variables:
+        print("No formula variables found. Please run create_formula_variables.py first.")
         return False
     
     # List of 20 unique party names
@@ -88,12 +58,6 @@ def create_sample_records(db: Session):
         "Shree Siddhivinayak Traders",
         "Rudra Agro Corporation"
     ]
-    
-    # Get formula variables for calculation
-    variables = {
-        var.name: float(var.value) 
-        for var in db.query(FormulaVariable).all()
-    }
     
     # Check if there are existing records
     existing_records = db.query(PlantRecord).count()
@@ -149,79 +113,21 @@ def create_sample_records(db: Session):
     print("Sample data creation complete!")
     return True
 
-def create_admin_user(db: Session):
-    """Create an admin user if no users exist."""
-    from app.models.user import User, Role
-    from app.core.security import get_password_hash
-    
-    # Check if users already exist
-    users = db.query(User).all()
-    if users:
-        print("Users already exist, skipping admin creation")
-        return
-    
-    # Get user input
-    print("\nCreating admin user:")
-    print("--------------------")
-    while True:
-        email = input("Admin email: ")
-        if "@" in email and "." in email:
-            break
-        print("Please enter a valid email address")
-    
-    # Get password
-    while True:
-        password = getpass.getpass("Admin password: ")
-        if len(password) >= 6:
-            password_confirm = getpass.getpass("Confirm password: ")
-            if password == password_confirm:
-                break
-            print("Passwords don't match, try again")
-        else:
-            print("Password must be at least 6 characters")
-    
-    full_name = input("Admin full name: ")
-    
-    # Create admin role if it doesn't exist
-    admin_role = db.query(Role).filter(Role.name == "admin").first()
-    if not admin_role:
-        admin_role = Role(
-            name="admin",
-            description="Administrator role with full access",
-            category="ADMIN"
-        )
-        db.add(admin_role)
-        db.commit()
-        db.refresh(admin_role)
-    
-    # Create admin user
-    admin_user = User(
-        email=email,
-        hashed_password=get_password_hash(password),
-        full_name=full_name,
-        is_active=True,
-        is_superuser=True,
-        role_id=admin_role.id
-    )
-    db.add(admin_user)
-    db.commit()
-    print(f"Admin user {email} created successfully!")
-
 def main():
-    """Main function to create sample data."""
+    """Main function to create sample plant records."""
+    print("=============================================")
+    print("Creating Sample Plant Records")
+    print("=============================================")
+    
     # Create a new database session
     db = SessionLocal()
     try:
-        # Create formula variables
-        create_sample_formula_variables(db)
-        
-        # Create sample records
         if not create_sample_records(db):
-            print("Sample records creation skipped or failed")
-        
-        # Create admin user
-        create_admin_user(db)
-        
+            print("Sample records creation failed")
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error creating sample records: {str(e)}")
+        sys.exit(1)
     finally:
         db.close()
 

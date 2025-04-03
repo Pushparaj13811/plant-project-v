@@ -30,46 +30,53 @@ fi
 echo "Installing/upgrading required packages..."
 pip3 install -r requirements.txt
 
-# Create database tables
-echo "Creating database tables..."
-python3 create_tables.py
+# Drop existing schema and recreate it
+echo "Dropping existing schema..."
+PGPASSWORD=Feed\!2712 psql -h postgres251.postgres.database.azure.com -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# Remove existing migrations
+echo "Removing existing migrations..."
+rm -f migrations/versions/*.py
+rm -f migrations/versions/*.pyc
+rm -f migrations/versions/__pycache__/*
+
+# Create a fresh migration
+echo "Creating fresh migration..."
+alembic revision --autogenerate -m "initial_migration"
 
 # Run Alembic migrations
 echo "Running database migrations..."
 alembic upgrade head
 
-# Create demo user
-echo "Creating demo user..."
-python3 create_demo_user.py
+# Create initial roles
+echo "Creating initial roles..."
+PGPASSWORD=Feed\!2712 psql -h postgres251.postgres.database.azure.com -U postgres -d postgres -c "
+INSERT INTO roles (id, name, category, description, parent_id, level, permissions, created_at, updated_at) VALUES 
+(1, 'user', 'USER', 'Regular user role', NULL, 1, '{\"can_view\": true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(2, 'admin', 'ADMIN', 'Administrator role', NULL, 2, '{\"can_view\": true, \"can_edit\": true, \"can_delete\": true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(3, 'super_admin', 'SUPER_ADMIN', 'Super Administrator role', NULL, 3, '{\"can_view\": true, \"can_edit\": true, \"can_delete\": true, \"can_manage_users\": true}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;"
 
-# Create plants
+# Create initial superuser
+echo "Creating superuser..."
+python3 create_superuser.py
+
+# Create initial plants
 echo "Creating plants..."
-python3 create_plants.py
+python create_plants.py
+
+# Create formula variables
+echo "Creating formula variables..."
+python create_formula_variables.py
 
 # Create sample data
 echo "Creating sample data..."
-python3 create_sample_data.py
-
-# Initialize database with default data
-echo "Initializing database with default data..."
-python3 -c "
-from app.core.database import SessionLocal
-from app.db.init_db import init_db
-db = SessionLocal()
-try:
-    init_db(db)
-    print('Database initialized with default data')
-finally:
-    db.close()
-"
+python create_sample_data.py
 
 echo "==============================================" 
 echo "Migration completed successfully!"
 echo "==============================================" 
-echo "You can now:"
+echo "Next steps:"
 echo "1. Run the FastAPI application:"
 echo "   uvicorn app.main:app --reload"
-echo ""
-echo "2. Create a custom superuser (if needed):"
-echo "   python3 create_superuser.py"
 echo "==============================================" 
