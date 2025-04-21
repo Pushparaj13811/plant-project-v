@@ -17,6 +17,8 @@ const AddUser = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -35,15 +37,27 @@ const AddUser = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoadingData(true);
+      setFetchError(null);
       try {
-        const [plantsResponse, rolesResponse] = await Promise.all([
-          api.get<Plant[]>('/management/plants/'),
-          api.get<Role[]>('/management/roles/')
-        ]);
+        console.log('Fetching plants and roles data...');
+        
+        const plantsResponse = await api.get<Plant[]>('/management/plants/');
+        console.log('Plants data received:', plantsResponse.data);
         setPlants(plantsResponse.data);
+        
+        const rolesResponse = await api.get<Role[]>('/management/roles/');
+        console.log('Roles data received:', rolesResponse.data);
         setRoles(rolesResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
+        if (error instanceof AxiosError) {
+          setFetchError(`Failed to load data: ${error.response?.data?.detail || error.message}`);
+        } else {
+          setFetchError('Failed to load plants and roles data');
+        }
+      } finally {
+        setLoadingData(false);
       }
     };
     fetchData();
@@ -143,6 +157,14 @@ const AddUser = () => {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
+            {fetchError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {fetchError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="first_name">First Name</Label>
@@ -188,16 +210,23 @@ const AddUser = () => {
                   value={formData.role_id}
                   onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                   required
+                  disabled={loadingData || roles.length === 0}
                 >
                   <SelectTrigger className="focus-visible:ring-blue-500">
-                    <SelectValue placeholder="Select role" />
+                    <SelectValue placeholder={loadingData ? "Loading roles..." : roles.length === 0 ? "No roles available" : "Select role"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id.toString()}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
+                    {loadingData ? (
+                      <SelectItem value="loading" disabled>Loading roles...</SelectItem>
+                    ) : roles.length === 0 ? (
+                      <SelectItem value="none" disabled>No roles available</SelectItem>
+                    ) : (
+                      roles.map((role) => (
+                        <SelectItem key={role.id} value={role.id.toString()}>
+                          {role.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -207,16 +236,23 @@ const AddUser = () => {
                 <Select
                   value={formData.plant_id}
                   onValueChange={(value) => setFormData({ ...formData, plant_id: value })}
+                  disabled={loadingData || plants.length === 0}
                 >
                   <SelectTrigger className="focus-visible:ring-blue-500">
-                    <SelectValue placeholder="Select plant" />
+                    <SelectValue placeholder={loadingData ? "Loading plants..." : plants.length === 0 ? "No plants available" : "Select plant"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {plants.map((plant) => (
-                      <SelectItem key={plant.id} value={plant.id.toString()}>
-                        {plant.name}
-                      </SelectItem>
-                    ))}
+                    {loadingData ? (
+                      <SelectItem value="loading" disabled>Loading plants...</SelectItem>
+                    ) : plants.length === 0 ? (
+                      <SelectItem value="none" disabled>No plants available</SelectItem>
+                    ) : (
+                      plants.map((plant) => (
+                        <SelectItem key={plant.id} value={plant.id.toString()}>
+                          {plant.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -234,7 +270,7 @@ const AddUser = () => {
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={isLoading}
+              disabled={isLoading || loadingData || roles.length === 0}
             >
               {isLoading ? (
                 <>
