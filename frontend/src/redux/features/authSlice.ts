@@ -37,6 +37,8 @@ const initialState: AuthState = {
   error: null,
 };
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const refreshAccessToken = createAsyncThunk<
   TokenResponse,
   void,
@@ -54,7 +56,7 @@ export const refreshAccessToken = createAsyncThunk<
       formData.append('refresh', refreshToken);
 
       const response = await axios.post<TokenResponse>(
-        'http://localhost:8000/api/auth/token/refresh/',
+        `${API_URL}/auth/token/refresh/`,
         formData,
         {
           headers: {
@@ -85,7 +87,7 @@ export const loginUser = createAsyncThunk<
       formData.append('password', credentials.password);
 
       const response = await axios.post<AuthResponse>(
-        'http://localhost:8000/api/auth/login/',
+        `${API_URL}/auth/login/`,
         formData,
         {
           headers: {
@@ -132,7 +134,7 @@ export const registerUser = createAsyncThunk<
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await axios.post<AuthResponse>('http://localhost:8000/api/auth/register/', userData);
+      const response = await axios.post<AuthResponse>(`${API_URL}/auth/register/`, userData);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
