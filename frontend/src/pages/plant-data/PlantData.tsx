@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plant } from '@/types/models';
 import { plantDataApi, PlantRecord, PlantRecordQuery } from '@/services/plantDataApi';
-import { Plus, FilterIcon, ChevronDown, Edit, Trash2, Eye, Download, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { Plus, FilterIcon, ChevronDown, Edit, Trash2, Eye, Download, ChevronLeft, ChevronRight, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import toast from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/redux/hooks';
@@ -138,6 +138,10 @@ const PlantData = () => {
     navigate('/plant-data/add', { state: { plant: selectedPlant } });
   };
 
+  const handleBulkUpload = () => {
+    navigate('/plant-data/add', { state: { plant: selectedPlant, initialTab: 'excel' } });
+  };
+
   const handleEditRecord = (id: number) => {
     navigate(`/plant-data/edit/${id}`);
   };
@@ -251,6 +255,19 @@ const PlantData = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Export to CSV</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleBulkUpload}>
+                  <FileSpreadsheet className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Bulk Upload from Excel</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

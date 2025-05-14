@@ -98,6 +98,13 @@ export interface ChatResponse {
   data?: Record<string, unknown>;
 }
 
+export interface BulkUploadResponse {
+  success: number;
+  failed: number;
+  errors?: string[];
+  total: number;
+}
+
 export const plantDataApi = {
   // Plant operations
   getPlants: async (): Promise<Plant[]> => {
@@ -121,6 +128,14 @@ export const plantDataApi = {
 
   createPlantRecord: async (data: Omit<PlantRecord, 'id' | 'plant' | 'created_at' | 'updated_at' | 'dm' | 'rate_on_dm' | 'oil_value' | 'net_wo_oil_fiber' | 'starch_per_point' | 'starch_value' | 'grain' | 'doc'>): Promise<PlantRecord> => {
     const response = await api.post<PlantRecord>(`${BASE_URL}/plant-records/`, data);
+    return response.data;
+  },
+
+  bulkUploadPlantRecords: async (plantId: number, data: Array<Omit<PlantRecord, 'id' | 'plant' | 'created_at' | 'updated_at' | 'dm' | 'rate_on_dm' | 'oil_value' | 'net_wo_oil_fiber' | 'starch_per_point' | 'starch_value' | 'grain' | 'doc'>>): Promise<BulkUploadResponse> => {
+    const response = await api.post<BulkUploadResponse>(`${BASE_URL}/plant-records/bulk-upload/`, {
+      plant_id: plantId,
+      records: data
+    });
     return response.data;
   },
 
