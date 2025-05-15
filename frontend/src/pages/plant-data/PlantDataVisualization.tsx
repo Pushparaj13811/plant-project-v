@@ -28,7 +28,7 @@ import {
   PolarRadiusAxis,
   Radar
 } from 'recharts';
-import { Loader2, Send, Zap, ChevronDown, MessageSquare, X, RefreshCw, Download } from 'lucide-react';
+import { Loader2, Send, Zap, ChevronDown, MessageSquare, X, RefreshCw, Download, Maximize2 } from 'lucide-react';
 import toast from '@/utils/toast';
 import type { PlantRecord, Plant } from '@/types/models';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { setSelectedPlant } from '@/redux/features/plantSlice';
 import { chatApi } from '../../services/api';
+import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
+import { FullPageChat } from '@/components/chat/FullPageChat';
+import { cn } from '@/lib/utils';
 
 // Simulate Avatar components if not available
 const Avatar = ({ className, children }: { className?: string, children: React.ReactNode }) => (
@@ -89,6 +92,7 @@ export default function PlantDataVisualization() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [isLoadingPlants, setIsLoadingPlants] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFullPageChat, setIsFullPageChat] = useState(false);
   
   const selectedPlant = useAppSelector((state: RootState) => state.plants.selectedPlant);
   const [localSelectedPlant, setLocalSelectedPlant] = useState<Plant | null>(null);
@@ -146,6 +150,17 @@ export default function PlantDataVisualization() {
     // Scroll to bottom of chat when new messages come in
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  // Add logging effect
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      console.log("Current chat messages:", chatMessages);
+      const lastMessage = chatMessages[chatMessages.length - 1];
+      if (lastMessage.role === 'assistant') {
+        console.log("Last assistant message content:", lastMessage.content);
+      }
     }
   }, [chatMessages]);
 
@@ -256,8 +271,24 @@ export default function PlantDataVisualization() {
   const sendMessage = async (message: string) => {
     if (!message.trim() || !selectedPlant) return;
     
+    // Create user message ID outside try block so it's available in catch block
+    const userMessageId = Date.now().toString();
+    
     try {
       setIsLoading(true);
+      
+      // Create and add user message immediately
+      const userMessage: ChatMessage = {
+        id: userMessageId,
+        content: message,
+        role: 'user',
+        timestamp: new Date()
+      };
+      
+      // Add user message immediately
+      setChatMessages(prev => [...prev, userMessage]);
+      
+      // Send message to API
       const response = await chatApi.sendMessage(
         message,
         selectedPlant.id,
@@ -265,13 +296,7 @@ export default function PlantDataVisualization() {
         endDate ? format(endDate, 'yyyy-MM-dd') : undefined
       );
       
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        content: message,
-        role: 'user',
-        timestamp: new Date()
-      };
-      
+      // Add assistant message when response is received
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         content: response.message,
@@ -279,10 +304,10 @@ export default function PlantDataVisualization() {
         timestamp: new Date()
       };
       
-      setChatMessages(prev => [...prev, userMessage, assistantMessage]);
-      setChatInput('');
+      setChatMessages(prev => [...prev, assistantMessage]);
       
-      // Scroll to bottom
+      // Clear input and scroll to bottom
+      setChatInput('');
       setTimeout(() => {
         if (chatContainerRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -291,6 +316,9 @@ export default function PlantDataVisualization() {
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message. Please try again.');
+      
+      // Remove the user message if the request failed
+      setChatMessages(prev => prev.filter(msg => msg.id !== userMessageId));
     } finally {
       setIsLoading(false);
     }
@@ -396,7 +424,7 @@ export default function PlantDataVisualization() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {pieData.map((entry, index) => (
+                {pieData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -480,6 +508,11 @@ export default function PlantDataVisualization() {
     }
   };
 
+  // Add toggle for full-page chat
+  const toggleFullPageChat = () => {
+    setIsFullPageChat(!isFullPageChat);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -497,7 +530,10 @@ export default function PlantDataVisualization() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6 relative">
+    <div className={cn(
+      "container mx-auto p-4 space-y-6 relative",
+      isFullPageChat && "pr-[600px]" // Add padding when full-page chat is open
+    )}>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
         <h1 className="text-2xl font-bold">Plant Data Visualization {localSelectedPlant ? `- ${localSelectedPlant.name}` : ''}</h1>
         
@@ -751,27 +787,22 @@ export default function PlantDataVisualization() {
         </Tabs>
       </div>
       
-      {/* Chat Button - Fixed position */}
-      <Button
-        onClick={toggleChat}
-        className="fixed bottom-4 right-4 rounded-full p-4 shadow-lg z-50"
-        variant={isChatVisible ? "destructive" : "default"}
-        size="lg"
-      >
-        {isChatVisible ? <X className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
-      </Button>
-      
       {/* Chatbot Interface */}
-      {isChatVisible && (
+      {isChatVisible && !isFullPageChat && (
         <div className="fixed bottom-20 right-4 w-96 h-[500px] bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col border z-50">
           <div className="p-3 border-b flex justify-between items-center">
             <h3 className="font-semibold flex items-center gap-2">
               <Zap className="h-4 w-4 text-yellow-500" />
-              Plant Data Assistant
+              <span>Plant Data Assistant</span>
             </h3>
-            <Button variant="ghost" size="sm" onClick={clearChat}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={clearChat}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={toggleFullPageChat}>
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           <div 
@@ -796,34 +827,48 @@ export default function PlantDataVisualization() {
                 )}
               </div>
             ) : (
-              chatMessages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+              chatMessages.map((message) => {
+                console.log("Rendering message:", message);
+                const isAssistantMessage = message.role === 'assistant';
+                if (isAssistantMessage) {
+                  console.log("Rendering assistant message with content:", message.content);
+                }
+                
+                return (
                   <div 
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user' 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted'
-                    }`}
+                    key={message.id} 
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="flex items-start gap-2">
-                      {message.role === 'assistant' && (
-                        <Avatar className="h-6 w-6 bg-primary">
-                          <AvatarFallback className="text-xs text-white">AI</AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div>
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {format(message.timestamp, 'HH:mm')}
-                        </p>
+                    <div 
+                      className={`max-w-[80%] rounded-lg p-3 ${
+                        message.role === 'user' 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-white dark:bg-gray-800 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {message.role === 'assistant' && (
+                          <Avatar className="h-6 w-6 bg-primary shrink-0">
+                            <AvatarFallback className="text-xs text-white">AI</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className="w-full overflow-hidden">
+                          {message.role === 'assistant' ? (
+                            <div className="text-foreground">
+                              <MarkdownRenderer content={message.content} />
+                            </div>
+                          ) : (
+                            <p className="text-sm">{message.content}</p>
+                          )}
+                          <p className="text-xs opacity-70 mt-1">
+                            {format(message.timestamp, 'HH:mm')}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             
             {isLoading && (
@@ -874,6 +919,29 @@ export default function PlantDataVisualization() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Full Page Chat */}
+      {isFullPageChat && (
+        <FullPageChat
+          messages={chatMessages}
+          isLoading={isLoading}
+          onClose={() => setIsFullPageChat(false)}
+          onSendMessage={sendMessage}
+          onClearChat={clearChat}
+        />
+      )}
+
+      {/* Chat Toggle Button */}
+      {!isFullPageChat && (
+        <Button
+          onClick={toggleChat}
+          className="fixed bottom-4 right-4 rounded-full p-4 shadow-lg z-50"
+          variant={isChatVisible ? "destructive" : "default"}
+          size="lg"
+        >
+          {isChatVisible ? <X className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
+        </Button>
       )}
     </div>
   );

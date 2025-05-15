@@ -23,6 +23,8 @@ import PlantDataVisualization from './pages/plant-data/PlantDataVisualization'
 import AddPlantData from './pages/plant-data/AddPlantData'
 import PlantData from './pages/plant-data/PlantData'
 import PlantDataSettings from '@/pages/plant-data/PlantDataSettings'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 
 function App() {
   return (
@@ -33,6 +35,8 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Loginpage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
 
           {/* Protected Routes */}
@@ -65,12 +69,12 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="plant-data/settings" element={
-              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                 <PlantDataSettings />
               </ProtectedRoute>
             } />
             <Route path="plant-data/visualization" element={
-              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN, RoleCategory.USER]}>
+              <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN,]}>
                 <PlantDataVisualization />
               </ProtectedRoute>
             } />
@@ -87,7 +91,7 @@ function App() {
             <Route
               path="/users/add"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <AddUser />
                 </ProtectedRoute>
               }
@@ -95,7 +99,7 @@ function App() {
             <Route
               path="/users/edit/:id"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <EditUser />
                 </ProtectedRoute>
               }
@@ -139,7 +143,7 @@ function App() {
             <Route
               path="/plants/add"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <AddPlant />
                 </ProtectedRoute>
               }
@@ -147,7 +151,7 @@ function App() {
             <Route
               path="/plants/edit/:id"
               element={
-                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN]}>
+                <ProtectedRoute allowedRoles={[RoleCategory.SUPERADMIN, RoleCategory.ADMIN]}>
                   <EditPlant />
                 </ProtectedRoute>
               }

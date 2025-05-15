@@ -53,7 +53,7 @@ const EditUser = () => {
           email: userData.email,
           first_name: userData.first_name,
           last_name: userData.last_name,
-          role_id: userData.role_details.id.toString(),
+          role_id: userData.role.id.toString(),
           plant_id: userData.plant?.id.toString() || NO_PLANT
         });
         setPlants(plantsResponse.data);

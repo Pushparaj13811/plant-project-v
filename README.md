@@ -1,21 +1,59 @@
-# Plant Data Management System
+# Plant Analytics & Metrics System
 
-A comprehensive application for tracking and analyzing plant data with calculated metrics. The system consists of a Django REST API backend and a React/TypeScript frontend.
+A comprehensive application for tracking, analyzing, and visualizing plant data with calculated metrics. The system provides advanced data management capabilities including bulk Excel uploads, custom formula calculations, and AI-powered analytics. Built with a FastAPI backend and a React/TypeScript frontend.
 
 ## Features
 
-- User authentication and role-based access control
-- Plant records management (create, read, update, delete)
-- Data visualization and statistics
-- Formula variable management
-- AI-powered chat assistant using Groq API
-- Responsive UI for both desktop and mobile devices
+### Core Functionality
+- **Plant Records Management**: Create, read, update, and delete plant data records with multiple input and calculated variables
+- **Data Visualization**: Interactive charts and visual analytics for plant performance metrics using Chart.js and Recharts
+- **Excel Data Import**: Bulk upload plant data directly from Excel spreadsheets using SheetJS
+- **Formula Variable Management**: Customize calculation parameters for derived metrics
+- **Calculation Engine**: Automatic computation of derived metrics based on configurable formulas
+
+### User Experience
+- **Responsive UI**: Modern interface that works seamlessly on desktop and mobile devices built with Tailwind CSS
+- **Data Filtering**: Filter records by plant, date range, and other parameters
+- **Data Export**: Export data to CSV for external analysis
+- **Interactive Tables**: Sort, filter, and paginate through large datasets efficiently
+
+### System Features
+- **User Authentication**: Secure JWT-based authentication with access and refresh tokens
+- **Role-Based Access Control**: Granular permissions based on user roles
+- **Multi-Plant Support**: Manage data across multiple plant locations
+- **AI-Powered Chat Assistant**: Ask questions about your data using natural language (powered by Groq API)
+
+## Technology Stack
+
+### Frontend
+- **Framework**: React 19 with TypeScript
+- **State Management**: Redux Toolkit with Redux Persist
+- **Routing**: React Router v7
+- **UI Components**: Custom components built with Radix UI primitives
+- **Styling**: Tailwind CSS with class-variance-authority
+- **HTTP Client**: Axios
+- **Charting**: Chart.js, React-Chartjs-2, and Recharts
+- **Date Handling**: date-fns
+- **Icons**: Lucide React
+- **Form Handling**: React Hook Form
+- **Excel Processing**: SheetJS (xlsx)
+- **Build Tool**: Vite
+
+### Backend
+- **Framework**: FastAPI
+- **ORM**: SQLAlchemy 2.0 with Alembic for migrations
+- **Database**: PostgreSQL
+- **Authentication**: JWT with python-jose, passlib, and bcrypt
+- **Validation**: Pydantic v2
+- **AI Integration**: Groq Python client
+- **Email**: aiosmtplib
+- **Logging**: structlog
 
 ## Project Structure
 
 This project is organized into two main components:
 
-- **Backend**: Django REST framework application with PostgreSQL database
+- **Backend**: FastAPI application with PostgreSQL database
 - **Frontend**: React application built with Vite, TypeScript, and Tailwind CSS
 
 ## Getting Started
@@ -33,13 +71,13 @@ This project is organized into two main components:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/plant-project.git
-   cd plant-project
+   git clone https://github.com/your-username/plant-analytics-metrics.git
+   cd plant-analytics-metrics
    ```
 
 2. Set up a virtual environment:
    ```bash
-   cd backend
+   cd fastapi_backend
    python3.13 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
@@ -60,11 +98,11 @@ This project is organized into two main components:
    DB_PORT=5432
    
    # Email Configuration
-   EMAIL_HOST_USER=your-email@gmail.com
-   EMAIL_HOST_PASSWORD=your-email-password
-   EMAIL_HOST=smtp.gmail.com
-   EMAIL_PORT=587
-   EMAIL_USE_TLS=True
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASSWORD=your-email-password
+   SMTP_SERVER=smtp.gmail.com
+   SMTP_PORT=587
+   EMAILS_USE_TLS=True
    
    # Frontend URL
    FRONTEND_URL=http://localhost:5173
@@ -73,20 +111,14 @@ This project is organized into two main components:
    GROQ_API_KEY=your-groq-api-key
    ```
 
-5. Apply migrations and create a superuser:
+5. Apply migrations:
    ```bash
-   python manage.py migrate
-   python manage.py createsuperuser
+   alembic upgrade head
    ```
 
-6. (Optional) Load sample data:
+6. Start the development server:
    ```bash
-   python create_sample_data.py
-   ```
-
-7. Start the development server:
-   ```bash
-   python manage.py runserver
+   uvicorn app.main:app --reload
    ```
 
 #### Frontend Setup
@@ -120,9 +152,11 @@ This project is organized into two main components:
 1. Navigate to `/plant-data` to see the list of all plant records
 2. Use the filters at the top to filter records by plant and date range
 3. The table displays key information about each record, including both input and calculated values
+4. Toggle between table and card views using the view switcher
 
 ### Adding Records
 
+#### Manual Entry
 1. Click the "Add Record" button on the Plant Data page
 2. Fill in all required fields in the form:
    - Select a plant
@@ -131,6 +165,15 @@ This project is organized into two main components:
    - Enter values for all input variables
 3. Click "Create" to save the record
 4. The calculated (dry) variables will be automatically computed on the server
+
+#### Excel Bulk Upload
+1. Click the Excel icon on the Plant Data page
+2. Select a plant for the imported records
+3. Upload an Excel file with plant data
+4. Map Excel columns to system fields
+5. Review the data preview
+6. Click "Process Excel Data" to start the upload
+7. View the success/failure summary after processing completes
 
 ### Editing Records
 
@@ -168,6 +211,7 @@ The application exposes the following key API endpoints:
 - `GET /api/plant-data/plant-records/` - Get all plant records (with optional filtering)
 - `GET /api/plant-data/plant-records/{id}/` - Get a specific plant record
 - `POST /api/plant-data/plant-records/` - Create a new plant record
+- `POST /api/plant-data/plant-records/bulk-upload/` - Upload multiple records from Excel
 - `PATCH /api/plant-data/plant-records/{id}/` - Update a plant record
 - `DELETE /api/plant-data/plant-records/{id}/` - Delete a plant record
 - `GET /api/plant-data/plant-records/statistics/` - Get statistics for plant records

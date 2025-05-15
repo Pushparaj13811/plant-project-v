@@ -98,6 +98,13 @@ export interface ChatResponse {
   data?: Record<string, unknown>;
 }
 
+export interface BulkUploadResponse {
+  success: number;
+  failed: number;
+  errors?: string[];
+  total: number;
+}
+
 export const plantDataApi = {
   // Plant operations
   getPlants: async (): Promise<Plant[]> => {
@@ -121,6 +128,14 @@ export const plantDataApi = {
 
   createPlantRecord: async (data: Omit<PlantRecord, 'id' | 'plant' | 'created_at' | 'updated_at' | 'dm' | 'rate_on_dm' | 'oil_value' | 'net_wo_oil_fiber' | 'starch_per_point' | 'starch_value' | 'grain' | 'doc'>): Promise<PlantRecord> => {
     const response = await api.post<PlantRecord>(`${BASE_URL}/plant-records/`, data);
+    return response.data;
+  },
+
+  bulkUploadPlantRecords: async (plantId: number, data: Array<Omit<PlantRecord, 'id' | 'plant' | 'created_at' | 'updated_at' | 'dm' | 'rate_on_dm' | 'oil_value' | 'net_wo_oil_fiber' | 'starch_per_point' | 'starch_value' | 'grain' | 'doc'>>): Promise<BulkUploadResponse> => {
+    const response = await api.post<BulkUploadResponse>(`${BASE_URL}/plant-records/bulk-upload/`, {
+      plant_id: plantId,
+      records: data
+    });
     return response.data;
   },
 
@@ -204,27 +219,27 @@ export const plantDataApi = {
 
   // Formula Variable Methods
   getFormulaVariables: async (): Promise<FormulaVariable[]> => {
-    const response = await api.get<FormulaVariable[]>(`${BASE_URL}/formula-variables/`);
+    const response = await api.get('/formula-variables/');
     return response.data;
   },
 
-  getFormulaVariable: async (id: number): Promise<FormulaVariable> => {
-    const response = await api.get<FormulaVariable>(`${BASE_URL}/formula-variables/${id}/`);
+  getFormulaVariable: async (name: string): Promise<FormulaVariable> => {
+    const response = await api.get<FormulaVariable>(`/formula-variables/${name}/`);
     return response.data;
   },
 
-  updateFormulaVariable: async (id: number, value: number): Promise<FormulaVariable> => {
-    const response = await api.patch<FormulaVariable>(`${BASE_URL}/formula-variables/${id}/`, { value });
+  updateFormulaVariable: async (name: string, value: number): Promise<FormulaVariable> => {
+    const response = await api.put<FormulaVariable>(`/formula-variables/${name}/`, { value });
     return response.data;
   },
 
-  resetFormulaVariable: async (id: number): Promise<FormulaVariable> => {
-    const response = await api.post<FormulaVariable>(`${BASE_URL}/formula-variables/${id}/reset/`);
+  resetFormulaVariable: async (name: string): Promise<FormulaVariable> => {
+    const response = await api.post<FormulaVariable>(`/formula-variables/${name}/reset/`);
     return response.data;
   },
 
   resetAllFormulaVariables: async (): Promise<void> => {
-    await api.post(`${BASE_URL}/formula-variables/reset_all/`);
+    await api.post(`/formula-variables/reset/`);
   },
 
   // Chatbot API
@@ -232,4 +247,115 @@ export const plantDataApi = {
     const response = await api.post<ChatResponse>(`${BASE_URL}/chat/`, data);
     return response.data;
   }
+};
+
+// Plant Records API
+export const plantRecordsApi = {
+  // Get all plant records with optional filtering and pagination
+  getRecords: async (query: PlantRecordQuery) => {
+    const response = await api.get('/plant-records/', { params: query });
+    return response.data;
+  },
+
+  // Get a single plant record by ID
+  getRecord: async (id: number) => {
+    const response = await api.get(`/plant-records/${id}/`);
+    return response.data;
+  },
+
+  // Create a new plant record
+  createRecord: async (data: Partial<PlantRecord>) => {
+    const response = await api.post('/plant-records/', data);
+    return response.data;
+  },
+
+  // Update a plant record
+  updateRecord: async (id: number, data: Partial<PlantRecord>) => {
+    const response = await api.put(`/plant-records/${id}/`, data);
+    return response.data;
+  },
+
+  // Delete a plant record
+  deleteRecord: async (id: number) => {
+    const response = await api.delete(`/plant-records/${id}/`);
+    return response.data;
+  },
+
+  // Get statistics for plant records
+  getStatistics: async (query: PlantRecordQuery) => {
+    const response = await api.get('/plant-records/statistics/', { params: query });
+    return response.data;
+  },
+
+  // Get available columns information
+  getAvailableColumns: async () => {
+    const response = await api.get('/plant-records/available-columns/');
+    return response.data;
+  },
+};
+
+// Formula Variables API
+export const formulaVariablesApi = {
+  // Get all formula variables
+  getVariables: async () => {
+    const response = await api.get('/formula-variables/');
+    return response.data;
+  },
+
+  // Get a single formula variable
+  getVariable: async (id: number) => {
+    const response = await api.get(`/formula-variables/${id}/`);
+    return response.data;
+  },
+
+  // Update a formula variable
+  updateVariable: async (id: number, data: Partial<FormulaVariable>) => {
+    const response = await api.patch(`/formula-variables/${id}/`, data);
+    return response.data;
+  },
+
+  // Reset all formula variables to defaults
+  resetAllVariables: async () => {
+    const response = await api.post('/formula-variables/reset-all/');
+    return response.data;
+  },
+
+  // Reset a single formula variable to default
+  resetVariable: async (id: number) => {
+    const response = await api.post(`/formula-variables/${id}/reset/`);
+    return response.data;
+  },
+};
+
+// Plants API
+export const plantsApi = {
+  // Get all plants
+  getPlants: async () => {
+    const response = await api.get('/plants/');
+    return response.data;
+  },
+
+  // Get a single plant
+  getPlant: async (id: number) => {
+    const response = await api.get(`/plants/${id}/`);
+    return response.data;
+  },
+
+  // Create a new plant
+  createPlant: async (data: Partial<Plant>) => {
+    const response = await api.post('/plants/', data);
+    return response.data;
+  },
+
+  // Update a plant
+  updatePlant: async (id: number, data: Partial<Plant>) => {
+    const response = await api.put(`/plants/${id}/`, data);
+    return response.data;
+  },
+
+  // Delete a plant
+  deletePlant: async (id: number) => {
+    const response = await api.delete(`/plants/${id}/`);
+    return response.data;
+  },
 }; 

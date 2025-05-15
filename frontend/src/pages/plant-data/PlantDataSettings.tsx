@@ -113,11 +113,11 @@ export default function PlantDataSettings() {
         }
     };
 
-    const handleUpdateVariable = async (id: number, value: number) => {
+    const handleUpdateVariable = async (name: string, value: number) => {
         try {
-            const updatedVariable = await plantDataApi.updateFormulaVariable(id, value);
+            const updatedVariable = await plantDataApi.updateFormulaVariable(name, value);
             setFormulaVariables(prev => 
-                prev.map(v => v.id === id ? updatedVariable : v)
+                prev.map(v => v.name === name ? updatedVariable : v)
             );
             toast.success('Variable updated successfully');
         } catch (err) {
@@ -126,11 +126,11 @@ export default function PlantDataSettings() {
         }
     };
 
-    const handleResetVariable = async (id: number) => {
+    const handleResetVariable = async (name: string) => {
         try {
-            const resetVariable = await plantDataApi.resetFormulaVariable(id);
+            const resetVariable = await plantDataApi.resetFormulaVariable(name);
             setFormulaVariables(prev => 
-                prev.map(v => v.id === id ? resetVariable : v)
+                prev.map(v => v.name === name ? resetVariable : v)
             );
             toast.success('Variable reset to default value');
         } catch (err) {
@@ -347,7 +347,7 @@ export default function PlantDataSettings() {
                                                     variant="ghost"
                                                     size="sm"
                                                     className="flex items-center gap-1"
-                                                    onClick={() => handleResetVariable(variable.id)}
+                                                    onClick={() => handleResetVariable(variable.name)}
                                                 >
                                                     <RotateCcw className="h-3 w-3" />
                                                     Reset
@@ -366,13 +366,13 @@ export default function PlantDataSettings() {
                                                                 const newValue = parseFloat(e.target.value);
                                                                 if (!isNaN(newValue)) {
                                                                     setFormulaVariables(prev =>
-                                                                        prev.map(v => v.id === variable.id ? {...v, value: newValue} : v)
+                                                                        prev.map(v => v.name === variable.name ? {...v, value: newValue} : v)
                                                                     );
                                                                 }
                                                             }}
                                                         />
                                                         <Button 
-                                                            onClick={() => handleUpdateVariable(variable.id, variable.value)}
+                                                            onClick={() => handleUpdateVariable(variable.name, variable.value)}
                                                         >
                                                             Save
                                                         </Button>

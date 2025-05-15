@@ -18,7 +18,8 @@ const AddPlant = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    address: ''
+    location: '',
+    description: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,14 +94,24 @@ const AddPlant = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className="focus-visible:ring-blue-500"
+                placeholder="Enter plant location"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="min-h-[100px] focus-visible:ring-blue-500"
-                placeholder="Enter plant address"
-                required
+                placeholder="Enter plant description"
               />
             </div>
 

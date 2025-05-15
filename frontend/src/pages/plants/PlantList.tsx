@@ -60,7 +60,7 @@ const PlantList = () => {
 
   const filteredPlants = plants.filter(plant =>
     plant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    plant.address.toLowerCase().includes(searchTerm.toLowerCase())
+    (plant.location?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -127,7 +127,7 @@ const PlantList = () => {
                   filteredPlants.map((plant) => (
                     <TableRow key={plant.id}>
                       <TableCell>{plant.name}</TableCell>
-                      <TableCell>{plant.address}</TableCell>
+                      <TableCell>{plant.location}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Link to={`/plants/edit/${plant.id}`}>

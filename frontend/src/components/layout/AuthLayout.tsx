@@ -16,8 +16,8 @@ const AuthLayout = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If no token and not on login page, redirect to login
-  if (!token && location.pathname !== '/login') {
+  // If no token, only allow access to login, forgot-password, and reset-password pages
+  if (!token && !['/login', '/forgot-password', '/reset-password'].includes(location.pathname)) {
     return <Navigate to="/login" replace />;
   }
 

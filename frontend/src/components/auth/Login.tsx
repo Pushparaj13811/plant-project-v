@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,  Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -154,9 +154,9 @@ const LoginForm = () => {
               />
               <Label htmlFor="remember" className="text-sm text-gray-600">Remember me</Label>
             </div>
-            <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700" type="button">
+            <Link to={'/forgot-password'} className="p-0 h-auto text-blue-600 hover:text-blue-700" type="button">
               Forgot password?
-            </Button>
+            </Link>
           </div>
         </CardContent>
 

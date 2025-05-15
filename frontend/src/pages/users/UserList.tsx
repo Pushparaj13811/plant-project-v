@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 
 interface UserWithPlant extends User {
   plant?: Plant;
+  role_details: Role;
 }
 
 const UserList = () => {
@@ -86,7 +87,7 @@ const UserList = () => {
       user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesRole = roleFilter === 'all' || user.role_details?.id.toString() === roleFilter;
+    const matchesRole = roleFilter === 'all' || (user.role_details && user.role_details.id.toString() === roleFilter);
     const matchesPlant = plantFilter === 'all' || user.plant?.id.toString() === plantFilter;
     return matchesSearch && matchesRole && matchesPlant;
   });

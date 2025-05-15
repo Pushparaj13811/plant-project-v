@@ -10,7 +10,10 @@ export interface ApiErrorResponse {
 
 const baseURL = import.meta.env.VITE_API_URL;
 const api = axios.create({
-  baseURL: baseURL
+  baseURL: baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // Request interceptor to add the auth token
@@ -92,14 +95,52 @@ api.interceptors.response.use(
 
 export default api;
 
+export const authApi = {
+  login: async (email: string, password: string) => {
+    const formData = new FormData();
+    formData.append('username', email); // FastAPI OAuth2 expects 'username' field
+    formData.append('password', password);
+    
+    const response = await api.post('/auth/login/', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    return response.data;
+  },
+  register: async (email: string, password: string, full_name: string) => {
+    const response = await api.post('/auth/register/', { email, password, full_name });
+    return response.data;
+  },
+  refreshToken: async (refresh: string) => {
+    const formData = new FormData();
+    formData.append('refresh', refresh);
+    
+    const response = await api.post('/auth/refresh/', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+    return response.data;
+  },
+  resetPassword: async (email: string) => {
+    const response = await api.post('/auth/password-reset/', { email });
+    return response.data;
+  },
+  resetPasswordConfirm: async (token: string, password: string) => {
+    const response = await api.post('/auth/password-reset-confirm/', { token, password });
+    return response.data;
+  },
+};
+
 export const chatApi = {
   sendMessage: async (message: string, plantId?: number, startDate?: string, endDate?: string) => {
-    const response = await api.post('/plant-data/chat/', {
+    const response = await api.post('/chat/', {
       message,
       plant_id: plantId,
       start_date: startDate,
-      end_date: endDate
+      end_date: endDate,
     });
     return response.data;
-  }
+  },
 }; 

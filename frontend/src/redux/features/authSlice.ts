@@ -37,6 +37,8 @@ const initialState: AuthState = {
   error: null,
 };
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export const refreshAccessToken = createAsyncThunk<
   TokenResponse,
   void,
@@ -50,9 +52,17 @@ export const refreshAccessToken = createAsyncThunk<
     }
 
     try {
+      const formData = new URLSearchParams();
+      formData.append('refresh', refreshToken);
+
       const response = await axios.post<TokenResponse>(
-        'http://localhost:8000/api/auth/token/refresh/',
-        { refresh: refreshToken }
+        `${API_URL}/auth/token/refresh/`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
       );
       return response.data;
     } catch (error) {
@@ -72,7 +82,19 @@ export const loginUser = createAsyncThunk<
   'auth/login',
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await axios.post<AuthResponse>('http://localhost:8000/api/auth/login/', credentials);
+      const formData = new URLSearchParams();
+      formData.append('username', credentials.email); // FastAPI expects 'username' field
+      formData.append('password', credentials.password);
+
+      const response = await axios.post<AuthResponse>(
+        `${API_URL}/auth/login/`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -112,7 +134,7 @@ export const registerUser = createAsyncThunk<
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const response = await axios.post<AuthResponse>('http://localhost:8000/api/auth/register/', userData);
+      const response = await axios.post<AuthResponse>(`${API_URL}/auth/register/`, userData);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
